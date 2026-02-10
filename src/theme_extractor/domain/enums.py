@@ -62,6 +62,18 @@ class ExtractMethodFlag(IntFlag):
     LLM = auto()
 
 
+class CleaningOptionFlag(IntFlag):
+    """Represent one or more cleaning options as bit flags."""
+
+    NONE = 0
+    WHITESPACE = auto()
+    ACCENT_NORMALIZATION = auto()
+    HEADER_FOOTER = auto()
+    BOILERPLATE = auto()
+    TOKEN_CLEANUP = auto()
+    HTML_STRIP = auto()
+
+
 _METHOD_TO_FLAG: dict[ExtractMethod, ExtractMethodFlag] = {
     ExtractMethod.BASELINE_TFIDF: ExtractMethodFlag.BASELINE_TFIDF,
     ExtractMethod.TERMS: ExtractMethodFlag.TERMS,
@@ -146,3 +158,78 @@ def method_flag_to_string(flag: ExtractMethodFlag) -> str:
     """
     methods = method_flag_to_methods(flag)
     return ",".join(method.value for method in methods)
+
+
+_CLEANING_NAME_TO_FLAG: dict[str, CleaningOptionFlag] = {
+    "whitespace": CleaningOptionFlag.WHITESPACE,
+    "accent_normalization": CleaningOptionFlag.ACCENT_NORMALIZATION,
+    "header_footer": CleaningOptionFlag.HEADER_FOOTER,
+    "boilerplate": CleaningOptionFlag.BOILERPLATE,
+    "token_cleanup": CleaningOptionFlag.TOKEN_CLEANUP,
+    "html_strip": CleaningOptionFlag.HTML_STRIP,
+}
+
+
+def default_cleaning_options() -> CleaningOptionFlag:
+    """Return default cleaning options for ingestion.
+
+    Returns:
+        CleaningOptionFlag: Default combined cleaning options.
+
+    """
+    return (
+        CleaningOptionFlag.WHITESPACE
+        | CleaningOptionFlag.ACCENT_NORMALIZATION
+        | CleaningOptionFlag.HEADER_FOOTER
+        | CleaningOptionFlag.BOILERPLATE
+        | CleaningOptionFlag.TOKEN_CLEANUP
+        | CleaningOptionFlag.HTML_STRIP
+    )
+
+
+def cleaning_flag_from_string(value: str) -> CleaningOptionFlag:
+    """Parse comma-separated cleaning options into a flag.
+
+    Args:
+        value (str): Raw comma-separated cleaning options.
+
+    Raises:
+        ValueError: If one option is unsupported or if no option is provided.
+
+    Returns:
+        CleaningOptionFlag: Combined cleaning options.
+
+    """
+    flag = CleaningOptionFlag.NONE
+
+    for raw in value.split(","):
+        normalized = raw.strip().lower()
+        if not normalized:
+            continue
+        if normalized == "all":
+            return default_cleaning_options()
+        if normalized not in _CLEANING_NAME_TO_FLAG:
+            supported = ", ".join(["all", *_CLEANING_NAME_TO_FLAG.keys()])
+            raise ValueError(  # noqa: TRY003
+                f"Unsupported cleaning option '{normalized}'. Supported values: {supported}.",
+            )
+        flag |= _CLEANING_NAME_TO_FLAG[normalized]
+
+    if flag == CleaningOptionFlag.NONE:
+        raise ValueError("At least one cleaning option must be provided.")  # noqa: TRY003
+
+    return flag
+
+
+def cleaning_flag_to_string(flag: CleaningOptionFlag) -> str:
+    """Convert cleaning option flags to canonical comma-separated form.
+
+    Args:
+        flag (CleaningOptionFlag): Combined cleaning options.
+
+    Returns:
+        str: Canonical comma-separated cleaning options.
+
+    """
+    names = [name for name, bit in _CLEANING_NAME_TO_FLAG.items() if flag & bit]
+    return ",".join(names)

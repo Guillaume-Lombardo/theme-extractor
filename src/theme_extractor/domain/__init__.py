@@ -10,11 +10,15 @@ from theme_extractor.domain.contracts import (
 )
 from theme_extractor.domain.enums import (
     BackendName,
+    CleaningOptionFlag,
     CommandName,
     ExtractMethod,
     ExtractMethodFlag,
     OfflinePolicy,
     OutputFocus,
+    cleaning_flag_from_string,
+    cleaning_flag_to_string,
+    default_cleaning_options,
     method_flag_from_string,
     method_flag_to_methods,
     method_flag_to_string,
@@ -24,6 +28,7 @@ from theme_extractor.domain.enums import (
 __all__ = [
     "BackendName",
     "BenchmarkOutput",
+    "CleaningOptionFlag",
     "CommandName",
     "DocumentTopicLink",
     "ExtractMethod",
@@ -34,6 +39,9 @@ __all__ = [
     "TopicKeyword",
     "TopicResult",
     "UnifiedExtractionOutput",
+    "cleaning_flag_from_string",
+    "cleaning_flag_to_string",
+    "default_cleaning_options",
     "method_flag_from_string",
     "method_flag_to_methods",
     "method_flag_to_string",
