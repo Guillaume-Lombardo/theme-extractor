@@ -36,7 +36,7 @@ Create a production-grade toolkit to compare topic extraction strategies on hete
 - [x] Add ingestion quality tests on representative fixtures
 
 ### Phase 3 - Strategy Implementations
-- [ ] Baselines:
+- [x] Baselines:
   - tf-idf
   - Elasticsearch/OpenSearch terms
   - Elasticsearch/OpenSearch significant_terms

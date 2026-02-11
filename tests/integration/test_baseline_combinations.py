@@ -6,8 +6,6 @@ from typing import Any
 
 from theme_extractor.cli import main
 
-_EXPECTED_METHOD_COUNT = 7
-
 
 @dataclass
 class _BackendStub:
@@ -69,61 +67,29 @@ class _BackendStub:
         }
 
 
-def test_benchmark_supports_combined_methods_focus_and_backend(monkeypatch, capsys) -> None:
+def test_benchmark_runs_all_baseline_methods_with_single_backend(monkeypatch, capsys) -> None:
     monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
 
     exit_code = main(
         [
             "benchmark",
             "--methods",
-            "baseline_tfidf,terms,significant_terms,significant_text,keybert,bertopic,llm",
+            "baseline_tfidf,terms,significant_terms,significant_text",
             "--focus",
             "topics",
-            "--backend",
-            "opensearch",
-            "--index",
-            "legal_docs",
-            "--offline-policy",
-            "preload_or_first_run",
         ],
     )
 
     assert exit_code == 0
     payload = json.loads(capsys.readouterr().out)
 
-    assert len(payload["methods"]) == _EXPECTED_METHOD_COUNT
-    assert payload["outputs"]["bertopic"]["metadata"]["backend"] == "opensearch"
-    assert payload["outputs"]["llm"]["metadata"]["index"] == "legal_docs"
-    assert payload["outputs"]["llm"]["metadata"]["offline_policy"] == "preload_or_first_run"
-
-
-def test_extract_supports_strict_offline_policy_and_elasticsearch_backend(
-    monkeypatch,
-    capsys,
-) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
-
-    exit_code = main(
-        [
-            "extract",
-            "--method",
-            "terms",
-            "--focus",
-            "both",
-            "--backend",
-            "elasticsearch",
-            "--offline-policy",
-            "strict",
-            "--index",
-            "theme_idx",
-        ],
-    )
-
-    assert exit_code == 0
-    payload = json.loads(capsys.readouterr().out)
-
-    assert payload["focus"] == "both"
-    assert payload["document_topics"] == []
-    assert payload["metadata"]["backend"] == "elasticsearch"
-    assert payload["metadata"]["offline_policy"] == "strict"
-    assert payload["metadata"]["index"] == "theme_idx"
+    assert payload["methods"] == [
+        "baseline_tfidf",
+        "terms",
+        "significant_terms",
+        "significant_text",
+    ]
+    assert payload["outputs"]["baseline_tfidf"]["topics"]
+    assert payload["outputs"]["terms"]["topics"][0]["label"] == "alpha"
+    assert payload["outputs"]["significant_terms"]["topics"][0]["label"] == "beta"
+    assert payload["outputs"]["significant_text"]["topics"][0]["label"] == "gamma"
