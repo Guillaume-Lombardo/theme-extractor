@@ -67,6 +67,25 @@ def test_ingest_to_file_writes_json(tmp_path) -> None:
     assert payload["documents"][0]["path"] == str(sample.resolve())
 
 
+def test_ingest_accepts_none_cleaning_option(tmp_path, capsys) -> None:
+    sample = tmp_path / "sample.txt"
+    sample.write_text("Résumé !!!", encoding="utf-8")
+
+    exit_code = main(
+        [
+            "ingest",
+            "--input",
+            str(sample),
+            "--cleaning-options",
+            "none",
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["cleaning_options"] == "none"
+
+
 def test_benchmark_rejects_unknown_method() -> None:
     with pytest.raises(UnsupportedMethodError, match="Unsupported extraction method: unknown"):
         main(["benchmark", "--methods", "unknown"])

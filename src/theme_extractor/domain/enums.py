@@ -161,6 +161,7 @@ def method_flag_to_string(flag: ExtractMethodFlag) -> str:
 
 
 _CLEANING_NAME_TO_FLAG: dict[str, CleaningOptionFlag] = {
+    "none": CleaningOptionFlag.NONE,
     "whitespace": CleaningOptionFlag.WHITESPACE,
     "accent_normalization": CleaningOptionFlag.ACCENT_NORMALIZATION,
     "header_footer": CleaningOptionFlag.HEADER_FOOTER,
@@ -201,18 +202,29 @@ def cleaning_flag_from_string(value: str) -> CleaningOptionFlag:
 
     """
     flag = CleaningOptionFlag.NONE
+    tokens = [raw.strip().lower() for raw in value.split(",") if raw.strip()]
 
-    for raw in value.split(","):
-        normalized = raw.strip().lower()
-        if not normalized:
-            continue
-        if normalized == "all":
-            return default_cleaning_options()
+    if not tokens:
+        raise ValueError("At least one cleaning option must be provided.")  # noqa: TRY003
+
+    if "all" in tokens and len(tokens) > 1:
+        raise ValueError("'all' cannot be combined with other cleaning options.")  # noqa: TRY003
+    if "none" in tokens and len(tokens) > 1:
+        raise ValueError("'none' cannot be combined with other cleaning options.")  # noqa: TRY003
+
+    if tokens == ["all"]:
+        return default_cleaning_options()
+    if tokens == ["none"]:
+        return CleaningOptionFlag.NONE
+
+    for normalized in tokens:
         if normalized not in _CLEANING_NAME_TO_FLAG:
             supported = ", ".join(["all", *_CLEANING_NAME_TO_FLAG.keys()])
             raise ValueError(  # noqa: TRY003
                 f"Unsupported cleaning option '{normalized}'. Supported values: {supported}.",
             )
+        if normalized == "none":
+            continue
         flag |= _CLEANING_NAME_TO_FLAG[normalized]
 
     if flag == CleaningOptionFlag.NONE:
@@ -231,5 +243,10 @@ def cleaning_flag_to_string(flag: CleaningOptionFlag) -> str:
         str: Canonical comma-separated cleaning options.
 
     """
-    names = [name for name, bit in _CLEANING_NAME_TO_FLAG.items() if flag & bit]
+    if flag == CleaningOptionFlag.NONE:
+        return "none"
+
+    names = [
+        name for name, bit in _CLEANING_NAME_TO_FLAG.items() if bit != CleaningOptionFlag.NONE and flag & bit
+    ]
     return ",".join(names)

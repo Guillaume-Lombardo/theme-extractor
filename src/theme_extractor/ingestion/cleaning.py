@@ -181,6 +181,9 @@ def apply_cleaning_options(text: str, *, options: CleaningOptionFlag) -> str:
     if options & CleaningOptionFlag.ACCENT_NORMALIZATION:
         output = normalize_french_accents(output)
 
+    if options & CleaningOptionFlag.TOKEN_CLEANUP:
+        output = " ".join(tokenize_for_ingestion(output))
+
     if options & CleaningOptionFlag.WHITESPACE:
         output = normalize_whitespace(output)
 

@@ -47,3 +47,9 @@ def test_apply_cleaning_options_combines_flags() -> None:
     )
     out = apply_cleaning_options(text, options=options)
     assert out == "Resume"
+
+
+def test_apply_cleaning_options_token_cleanup_applies_tokenization() -> None:
+    text = "Résumé, Banque!!! de France 2024"
+    out = apply_cleaning_options(text, options=CleaningOptionFlag.TOKEN_CLEANUP)
+    assert out == "résumé banque de france"

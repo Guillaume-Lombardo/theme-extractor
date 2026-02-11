@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import dataclass
 from pathlib import Path  # noqa: TC003
-from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -67,6 +67,17 @@ class IngestionRunResult(BaseModel):
     skipped: list[SkippedDocument]
 
 
+@dataclass(frozen=True, slots=True)
+class _ProcessedDocumentMetadata:
+    """Represent lightweight processed document metadata."""
+
+    path: Path
+    raw_length: int
+    clean_length: int
+    clean_text_preview: str
+    tokens: list[str]
+
+
 class IngestionPipeline:
     """Run ingestion and cleaning over a local corpus path."""
 
@@ -89,7 +100,7 @@ class IngestionPipeline:
         files = list(self._iter_candidate_files())
 
         tokenized_documents: list[list[str]] = []
-        processed_items: list[dict[str, Any]] = []
+        processed_items: list[_ProcessedDocumentMetadata] = []
         skipped: list[SkippedDocument] = []
 
         for file_path in files:
@@ -107,12 +118,13 @@ class IngestionPipeline:
             tokenized_documents.append(tokens)
 
             processed_items.append(
-                {
-                    "path": file_path,
-                    "raw_text": raw_text,
-                    "cleaned_text": cleaned_text,
-                    "tokens": tokens,
-                },
+                _ProcessedDocumentMetadata(
+                    path=file_path,
+                    raw_length=len(raw_text),
+                    clean_length=len(cleaned_text),
+                    clean_text_preview=cleaned_text[:200],
+                    tokens=tokens,
+                ),
             )
 
         auto_stopwords: set[str] = set()
@@ -127,20 +139,20 @@ class IngestionPipeline:
 
         documents: list[IngestedDocument] = []
         for item in processed_items:
-            filtered_tokens = [token for token in item["tokens"] if token.lower() not in stopwords]
-            removed_count = len(item["tokens"]) - len(filtered_tokens)
-            doc_id = _document_id_for_path(item["path"])
+            filtered_tokens = [token for token in item.tokens if token.lower() not in stopwords]
+            removed_count = len(item.tokens) - len(filtered_tokens)
+            doc_id = _document_id_for_path(item.path)
 
             documents.append(
                 IngestedDocument(
                     document_id=doc_id,
-                    path=str(item["path"]),
-                    extension=item["path"].suffix.lower(),
-                    raw_length=len(item["raw_text"]),
-                    clean_length=len(item["cleaned_text"]),
+                    path=str(item.path),
+                    extension=item.path.suffix.lower(),
+                    raw_length=item.raw_length,
+                    clean_length=item.clean_length,
                     token_count=len(filtered_tokens),
                     removed_stopword_count=removed_count,
-                    clean_text_preview=item["cleaned_text"][:200],
+                    clean_text_preview=item.clean_text_preview,
                 ),
             )
 

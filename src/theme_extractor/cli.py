@@ -149,7 +149,7 @@ def _build_ingest_parser(subparsers: argparse._SubParsersAction[argparse.Argumen
         default=cleaning_flag_to_string(default_cleaning_options()),
         help=(
             "Comma-separated cleaning options. "
-            "Available: all, whitespace, accent_normalization, header_footer, "
+            "Available: none, all, whitespace, accent_normalization, header_footer, "
             "boilerplate, token_cleanup, html_strip."
         ),
     )

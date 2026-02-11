@@ -56,11 +56,20 @@ def test_cleaning_flag_from_string_supports_all_keyword() -> None:
     assert cleaning_flag_from_string("all") == default_cleaning_options()
 
 
+def test_cleaning_flag_from_string_supports_none_keyword() -> None:
+    assert cleaning_flag_from_string("none") == CleaningOptionFlag.NONE
+
+
 def test_cleaning_flag_from_string_combines_values() -> None:
     flag = cleaning_flag_from_string("whitespace,boilerplate,html_strip")
     assert flag & CleaningOptionFlag.WHITESPACE
     assert flag & CleaningOptionFlag.BOILERPLATE
     assert flag & CleaningOptionFlag.HTML_STRIP
+
+
+def test_cleaning_flag_from_string_rejects_none_with_other_values() -> None:
+    with pytest.raises(ValueError, match="'none' cannot be combined"):
+        cleaning_flag_from_string("none,whitespace")
 
 
 def test_cleaning_flag_from_string_rejects_unknown_value() -> None:
@@ -71,3 +80,9 @@ def test_cleaning_flag_from_string_rejects_unknown_value() -> None:
 def test_cleaning_flag_to_string_returns_canonical_names() -> None:
     flag = CleaningOptionFlag.ACCENT_NORMALIZATION | CleaningOptionFlag.TOKEN_CLEANUP
     assert cleaning_flag_to_string(flag) == "accent_normalization,token_cleanup"
+
+
+def test_cleaning_flag_none_roundtrip() -> None:
+    serialized = cleaning_flag_to_string(CleaningOptionFlag.NONE)
+    assert serialized == "none"
+    assert cleaning_flag_from_string(serialized) == CleaningOptionFlag.NONE
