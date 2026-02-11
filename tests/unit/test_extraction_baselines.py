@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import pytest
+
 from theme_extractor.domain import (
     BackendName,
     CommandName,
@@ -170,3 +172,24 @@ def test_run_baseline_significant_methods_map_scores() -> None:
     assert sig_terms_output.topics[0].score == _EXPECTED_SIG_TERMS_SCORE
     assert sig_text_output.topics[0].label == "stress"
     assert sig_text_output.topics[0].score == _EXPECTED_SIG_TEXT_SCORE
+
+
+def test_run_baseline_method_raises_for_non_baseline_method() -> None:
+    backend = _BackendStub(
+        search_response={},
+        terms_response={},
+        sig_terms_response={},
+        sig_text_response={},
+    )
+
+    with pytest.raises(ValueError, match="Unsupported baseline extraction method"):
+        run_baseline_method(
+            backend=backend,
+            request=BaselineRunRequest(
+                method=ExtractMethod.LLM,
+                index="idx",
+                focus=OutputFocus.TOPICS,
+                config=BaselineExtractionConfig(top_n=2),
+            ),
+            output=_make_output(method=ExtractMethod.LLM, focus=OutputFocus.TOPICS),
+        )

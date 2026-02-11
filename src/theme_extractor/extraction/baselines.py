@@ -5,8 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-
 from theme_extractor.domain import (
     DocumentTopicLink,
     ExtractMethod,
@@ -19,10 +17,13 @@ from theme_extractor.domain import (
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from sklearn.feature_extraction.text import TfidfVectorizer
+
     from theme_extractor.search.protocols import SearchBackend
 
 _AGG_TERMS_KEY = "terms"
 _AGG_THEMES_KEY = "themes"
+_UNSUPPORTED_BASELINE_ERROR = "Unsupported baseline extraction method: {method!r}."
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +68,18 @@ class BaselineRunRequest:
     index: str
     focus: OutputFocus
     config: BaselineExtractionConfig
+
+
+def _get_tfidf_vectorizer() -> type[TfidfVectorizer]:
+    """Return TfidfVectorizer class via lazy import.
+
+    Returns:
+        Any: TfidfVectorizer class.
+
+    """
+    from sklearn.feature_extraction.text import TfidfVectorizer  # noqa: PLC0415
+
+    return TfidfVectorizer
 
 
 def _normalized_query(config: BaselineExtractionConfig) -> dict[str, Any]:
@@ -246,7 +259,8 @@ def _extract_tfidf_topic(
         empty_doc_topics = [] if focus in {OutputFocus.DOCUMENTS, OutputFocus.BOTH} else None
         return [], empty_doc_topics
 
-    vectorizer = TfidfVectorizer(ngram_range=(1, 3), min_df=1, max_features=50_000)
+    tfidf_vectorizer = _get_tfidf_vectorizer()
+    vectorizer = tfidf_vectorizer(ngram_range=(1, 3), min_df=1, max_features=50_000)
     matrix = vectorizer.fit_transform(documents)
     scores = matrix.sum(axis=0).A1
     feature_names = vectorizer.get_feature_names_out()
@@ -331,6 +345,9 @@ def run_baseline_method(
     Returns:
         UnifiedExtractionOutput: Updated output payload.
 
+    Raises:
+        ValueError: If request.method is not a supported baseline method.
+
     """
     if request.method == ExtractMethod.BASELINE_TFIDF:
         topics, document_topics = _extract_tfidf_topic(
@@ -377,4 +394,4 @@ def run_baseline_method(
         output.notes.append("significant_text aggregation baseline executed.")
         return output
 
-    return output
+    raise ValueError(_UNSUPPORTED_BASELINE_ERROR.format(method=request.method))

@@ -59,6 +59,7 @@ Project skills live in `skills/`:
 - `skills/testing/SKILL.md`
 - `skills/code-style/SKILL.md`
 - `skills/tooling/SKILL.md`
+- `skills/review-followup/SKILL.md`
 
 ## Architecture Constraint (Search Backend)
 Elasticsearch and OpenSearch access must go through a thin interface:

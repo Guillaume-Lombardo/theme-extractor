@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
@@ -34,9 +34,19 @@ from theme_extractor.extraction import (
 from theme_extractor.ingestion import IngestionConfig, run_ingestion
 from theme_extractor.search.factory import build_search_backend
 
+if TYPE_CHECKING:
+    from theme_extractor.search.protocols import SearchBackend
+
 _DEFAULT_BACKEND_URL = "http://localhost:9200"
 _DEFAULT_INDEX = "theme_extractor"
 _DEFAULT_METHODS = "baseline_tfidf,keybert,bertopic,llm"
+_DEFAULT_BASELINE_FIELDS = ("content", "filename", "path")
+_BASELINE_METHODS = {
+    ExtractMethod.BASELINE_TFIDF,
+    ExtractMethod.TERMS,
+    ExtractMethod.SIGNIFICANT_TERMS,
+    ExtractMethod.SIGNIFICANT_TEXT,
+}
 
 
 def _emit_payload(payload: dict[str, Any] | BaseModel, output: str) -> None:
@@ -110,6 +120,78 @@ def _add_output_flag(subparser: argparse.ArgumentParser) -> None:
         default="-",
         help="Output file path for JSON result. Use '-' to print to stdout.",
     )
+
+
+def _parse_baseline_fields(value: str) -> tuple[str, ...]:
+    """Parse baseline fields from CLI and validate non-empty output.
+
+    Args:
+        value (str): Raw comma-separated fields value.
+
+    Returns:
+        tuple[str, ...]: Parsed non-empty field names, or default fields if empty.
+
+    """
+    fields = tuple(part.strip() for part in value.split(",") if part.strip())
+    return fields or _DEFAULT_BASELINE_FIELDS
+
+
+def _build_baseline_config(args: argparse.Namespace) -> BaselineExtractionConfig:
+    """Build baseline extraction config from CLI args.
+
+    Args:
+        args (argparse.Namespace): Parsed CLI args.
+
+    Returns:
+        BaselineExtractionConfig: Baseline runtime config.
+
+    """
+    return BaselineExtractionConfig(
+        query=str(args.query),
+        fields=_parse_baseline_fields(str(args.fields)),
+        source_field=str(args.source_field),
+        top_n=max(1, int(args.topn)),
+        search_size=max(1, int(args.search_size)),
+        aggregation_field=str(args.agg_field),
+        terms_min_doc_count=max(1, int(args.terms_min_doc_count)),
+        sigtext_filter_duplicate=bool(args.sigtext_filter_duplicate),
+    )
+
+
+def _build_baseline_backend(
+    *,
+    args: argparse.Namespace,
+    backend: BackendName,
+) -> SearchBackend:
+    """Build backend adapter for baseline methods.
+
+    Args:
+        args (argparse.Namespace): Parsed CLI args.
+        backend (BackendName): Backend enum value.
+
+    Returns:
+        Any: Search backend adapter.
+
+    """
+    return build_search_backend(
+        backend=backend,
+        url=str(args.backend_url),
+        timeout_s=30.0,
+        verify_certs=True,
+    )
+
+
+def _is_baseline_method(method: ExtractMethod) -> bool:
+    """Check whether method is a baseline method.
+
+    Args:
+        method (ExtractMethod): Extraction method.
+
+    Returns:
+        bool: True if baseline method.
+
+    """
+    return method in _BASELINE_METHODS
 
 
 def _add_baseline_strategy_flags(subparser: argparse.ArgumentParser) -> None:
@@ -340,16 +422,7 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
     focus = OutputFocus(args.focus)
     offline_policy = OfflinePolicy(args.offline_policy)
     backend = BackendName(args.backend)
-    baseline_config = BaselineExtractionConfig(
-        query=str(args.query),
-        fields=tuple(part.strip() for part in str(args.fields).split(",") if part.strip()),
-        source_field=str(args.source_field),
-        top_n=max(1, int(args.topn)),
-        search_size=max(1, int(args.search_size)),
-        aggregation_field=str(args.agg_field),
-        terms_min_doc_count=max(1, int(args.terms_min_doc_count)),
-        sigtext_filter_duplicate=bool(args.sigtext_filter_duplicate),
-    )
+    baseline_config = _build_baseline_config(args)
 
     document_topics: list[DocumentTopicLink] | None = None
     if focus in {OutputFocus.DOCUMENTS, OutputFocus.BOTH}:
@@ -372,19 +445,8 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
         ],
         metadata=metadata,
     )
-    baseline_methods = {
-        ExtractMethod.BASELINE_TFIDF,
-        ExtractMethod.TERMS,
-        ExtractMethod.SIGNIFICANT_TERMS,
-        ExtractMethod.SIGNIFICANT_TEXT,
-    }
-    if method in baseline_methods:
-        search_backend = build_search_backend(
-            backend=backend,
-            url=str(args.backend_url),
-            timeout_s=30.0,
-            verify_certs=True,
-        )
+    if _is_baseline_method(method):
+        search_backend = _build_baseline_backend(args=args, backend=backend)
         return run_baseline_method(
             backend=search_backend,
             request=BaselineRunRequest(
@@ -414,30 +476,10 @@ def _handle_benchmark(args: argparse.Namespace) -> BenchmarkOutput:
     focus = OutputFocus(args.focus)
     offline_policy = OfflinePolicy(args.offline_policy)
     backend = BackendName(args.backend)
-    baseline_config = BaselineExtractionConfig(
-        query=str(args.query),
-        fields=tuple(part.strip() for part in str(args.fields).split(",") if part.strip()),
-        source_field=str(args.source_field),
-        top_n=max(1, int(args.topn)),
-        search_size=max(1, int(args.search_size)),
-        aggregation_field=str(args.agg_field),
-        terms_min_doc_count=max(1, int(args.terms_min_doc_count)),
-        sigtext_filter_duplicate=bool(args.sigtext_filter_duplicate),
-    )
-    baseline_methods = {
-        ExtractMethod.BASELINE_TFIDF,
-        ExtractMethod.TERMS,
-        ExtractMethod.SIGNIFICANT_TERMS,
-        ExtractMethod.SIGNIFICANT_TEXT,
-    }
+    baseline_config = _build_baseline_config(args)
     search_backend = None
-    if any(method in baseline_methods for method in methods):
-        search_backend = build_search_backend(
-            backend=backend,
-            url=str(args.backend_url),
-            timeout_s=30.0,
-            verify_certs=True,
-        )
+    if any(_is_baseline_method(method) for method in methods):
+        search_backend = _build_baseline_backend(args=args, backend=backend)
 
     outputs: dict[str, UnifiedExtractionOutput] = {}
 
@@ -463,7 +505,7 @@ def _handle_benchmark(args: argparse.Namespace) -> BenchmarkOutput:
             ],
             metadata=metadata,
         )
-        if method in baseline_methods and search_backend is not None:
+        if _is_baseline_method(method) and search_backend is not None:
             output = run_baseline_method(
                 backend=search_backend,
                 request=BaselineRunRequest(
