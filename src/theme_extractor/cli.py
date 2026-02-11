@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
@@ -26,11 +26,27 @@ from theme_extractor.domain import (
     method_flag_to_methods,
     parse_extract_method,
 )
+from theme_extractor.extraction import (
+    BaselineExtractionConfig,
+    BaselineRunRequest,
+    run_baseline_method,
+)
 from theme_extractor.ingestion import IngestionConfig, run_ingestion
+from theme_extractor.search.factory import build_search_backend
+
+if TYPE_CHECKING:
+    from theme_extractor.search.protocols import SearchBackend
 
 _DEFAULT_BACKEND_URL = "http://localhost:9200"
 _DEFAULT_INDEX = "theme_extractor"
 _DEFAULT_METHODS = "baseline_tfidf,keybert,bertopic,llm"
+_DEFAULT_BASELINE_FIELDS = ("content", "filename", "path")
+_BASELINE_METHODS = {
+    ExtractMethod.BASELINE_TFIDF,
+    ExtractMethod.TERMS,
+    ExtractMethod.SIGNIFICANT_TERMS,
+    ExtractMethod.SIGNIFICANT_TEXT,
+}
 
 
 def _emit_payload(payload: dict[str, Any] | BaseModel, output: str) -> None:
@@ -106,6 +122,131 @@ def _add_output_flag(subparser: argparse.ArgumentParser) -> None:
     )
 
 
+def _parse_baseline_fields(value: str) -> tuple[str, ...]:
+    """Parse baseline fields from CLI and validate non-empty output.
+
+    Args:
+        value (str): Raw comma-separated fields value.
+
+    Returns:
+        tuple[str, ...]: Parsed non-empty field names, or default fields if empty.
+
+    """
+    fields = tuple(part.strip() for part in value.split(",") if part.strip())
+    return fields or _DEFAULT_BASELINE_FIELDS
+
+
+def _build_baseline_config(args: argparse.Namespace) -> BaselineExtractionConfig:
+    """Build baseline extraction config from CLI args.
+
+    Args:
+        args (argparse.Namespace): Parsed CLI args.
+
+    Returns:
+        BaselineExtractionConfig: Baseline runtime config.
+
+    """
+    return BaselineExtractionConfig(
+        query=str(args.query),
+        fields=_parse_baseline_fields(str(args.fields)),
+        source_field=str(args.source_field),
+        top_n=max(1, int(args.topn)),
+        search_size=max(1, int(args.search_size)),
+        aggregation_field=str(args.agg_field),
+        terms_min_doc_count=max(1, int(args.terms_min_doc_count)),
+        sigtext_filter_duplicate=bool(args.sigtext_filter_duplicate),
+    )
+
+
+def _build_baseline_backend(
+    *,
+    args: argparse.Namespace,
+    backend: BackendName,
+) -> SearchBackend:
+    """Build backend adapter for baseline methods.
+
+    Args:
+        args (argparse.Namespace): Parsed CLI args.
+        backend (BackendName): Backend enum value.
+
+    Returns:
+        Any: Search backend adapter.
+
+    """
+    return build_search_backend(
+        backend=backend,
+        url=str(args.backend_url),
+        timeout_s=30.0,
+        verify_certs=True,
+    )
+
+
+def _is_baseline_method(method: ExtractMethod) -> bool:
+    """Check whether method is a baseline method.
+
+    Args:
+        method (ExtractMethod): Extraction method.
+
+    Returns:
+        bool: True if baseline method.
+
+    """
+    return method in _BASELINE_METHODS
+
+
+def _add_baseline_strategy_flags(subparser: argparse.ArgumentParser) -> None:
+    """Add extraction baseline tuning flags.
+
+    Args:
+        subparser (argparse.ArgumentParser): Subcommand parser to enrich.
+
+    """
+    subparser.add_argument(
+        "--query",
+        default="match_all",
+        help="Search query used by backend-driven baseline extraction methods.",
+    )
+    subparser.add_argument(
+        "--fields",
+        default="content,filename,path",
+        help="Comma-separated fields used for search query matching.",
+    )
+    subparser.add_argument(
+        "--source-field",
+        default="content",
+        help="Source field used to build TF-IDF corpus from backend hits.",
+    )
+    subparser.add_argument(
+        "--topn",
+        default=25,
+        type=int,
+        help="Maximum number of terms/topics to return.",
+    )
+    subparser.add_argument(
+        "--search-size",
+        default=200,
+        type=int,
+        help="Number of backend documents fetched for TF-IDF baseline.",
+    )
+    subparser.add_argument(
+        "--agg-field",
+        default="tokens",
+        help="Aggregation field used by terms/significant baselines.",
+    )
+    subparser.add_argument(
+        "--terms-min-doc-count",
+        default=1,
+        type=int,
+        help="Minimum document count for terms aggregation buckets.",
+    )
+    subparser.add_argument(
+        "--sigtext-filter-duplicate",
+        default=True,
+        action=argparse.BooleanOptionalAction,
+        help="Enable duplicate-text filtering for significant_text aggregation.",
+    )
+
+
 def _build_ingest_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the ingest subcommand parser.
 
@@ -178,6 +319,7 @@ def _build_extract_parser(subparsers: argparse._SubParsersAction[argparse.Argume
         choices=[focus.value for focus in OutputFocus],
         help="Unified output focus.",
     )
+    _add_baseline_strategy_flags(extract_parser)
     _add_shared_runtime_flags(extract_parser)
     _add_output_flag(extract_parser)
     extract_parser.set_defaults(handler=_handle_extract)
@@ -205,6 +347,7 @@ def _build_benchmark_parser(subparsers: argparse._SubParsersAction[argparse.Argu
         choices=[focus.value for focus in OutputFocus],
         help="Unified output focus.",
     )
+    _add_baseline_strategy_flags(benchmark_parser)
     _add_shared_runtime_flags(benchmark_parser)
     _add_output_flag(benchmark_parser)
     benchmark_parser.set_defaults(handler=_handle_benchmark)
@@ -279,6 +422,7 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
     focus = OutputFocus(args.focus)
     offline_policy = OfflinePolicy(args.offline_policy)
     backend = BackendName(args.backend)
+    baseline_config = _build_baseline_config(args)
 
     document_topics: list[DocumentTopicLink] | None = None
     if focus in {OutputFocus.DOCUMENTS, OutputFocus.BOTH}:
@@ -291,16 +435,30 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
         backend=backend,
         index=args.index,
     )
-    return UnifiedExtractionOutput(
+    output = UnifiedExtractionOutput(
         focus=focus,
         topics=[],
         document_topics=document_topics,
         notes=[
             "Topic-first unified schema is active.",
-            "Document-topic links are optional and currently empty in this phase.",
+            "Document-topic links are optional and method-dependent.",
         ],
         metadata=metadata,
     )
+    if _is_baseline_method(method):
+        search_backend = _build_baseline_backend(args=args, backend=backend)
+        return run_baseline_method(
+            backend=search_backend,
+            request=BaselineRunRequest(
+                method=method,
+                index=str(args.index),
+                focus=focus,
+                config=baseline_config,
+            ),
+            output=output,
+        )
+
+    return output
 
 
 def _handle_benchmark(args: argparse.Namespace) -> BenchmarkOutput:
@@ -318,6 +476,10 @@ def _handle_benchmark(args: argparse.Namespace) -> BenchmarkOutput:
     focus = OutputFocus(args.focus)
     offline_policy = OfflinePolicy(args.offline_policy)
     backend = BackendName(args.backend)
+    baseline_config = _build_baseline_config(args)
+    search_backend = None
+    if any(_is_baseline_method(method) for method in methods):
+        search_backend = _build_baseline_backend(args=args, backend=backend)
 
     outputs: dict[str, UnifiedExtractionOutput] = {}
 
@@ -333,16 +495,29 @@ def _handle_benchmark(args: argparse.Namespace) -> BenchmarkOutput:
             backend=backend,
             index=args.index,
         )
-        outputs[method.value] = UnifiedExtractionOutput(
+        output = UnifiedExtractionOutput(
             focus=focus,
             topics=[],
             document_topics=document_topics,
             notes=[
                 "Topic-first unified schema is active.",
-                "Benchmark execution engine is not implemented yet in this phase.",
+                "Benchmark execution engine runs one method at a time.",
             ],
             metadata=metadata,
         )
+        if _is_baseline_method(method) and search_backend is not None:
+            output = run_baseline_method(
+                backend=search_backend,
+                request=BaselineRunRequest(
+                    method=method,
+                    index=str(args.index),
+                    focus=focus,
+                    config=baseline_config,
+                ),
+                output=output,
+            )
+
+        outputs[method.value] = output
 
     return BenchmarkOutput(methods=methods, outputs=outputs)
 

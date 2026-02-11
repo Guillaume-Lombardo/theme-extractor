@@ -57,6 +57,7 @@ requires = ["hatchling", "build"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
+packages = ["src/theme_extractor"]
 include = ["src/theme_extractor/**"]
 exclude = ["src/theme_extractor/**/*.pyc", "src/theme_extractor/__pycache__/**"]
 
