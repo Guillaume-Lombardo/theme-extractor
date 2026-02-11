@@ -19,10 +19,14 @@ from theme_extractor.domain import (
     OfflinePolicy,
     OutputFocus,
     UnifiedExtractionOutput,
+    cleaning_flag_from_string,
+    cleaning_flag_to_string,
+    default_cleaning_options,
     method_flag_from_string,
     method_flag_to_methods,
     parse_extract_method,
 )
+from theme_extractor.ingestion import IngestionConfig, run_ingestion
 
 _DEFAULT_BACKEND_URL = "http://localhost:9200"
 _DEFAULT_INDEX = "theme_extractor"
@@ -111,6 +115,44 @@ def _build_ingest_parser(subparsers: argparse._SubParsersAction[argparse.Argumen
     """
     ingest_parser = subparsers.add_parser(CommandName.INGEST.value, help="Plan ingestion configuration.")
     ingest_parser.add_argument("--input", required=True, help="Input folder or file path to ingest.")
+    ingest_parser.add_argument(
+        "--recursive",
+        default=True,
+        action=argparse.BooleanOptionalAction,
+        help="Recursively scan subdirectories (enabled by default).",
+    )
+    ingest_parser.add_argument(
+        "--manual-stopwords",
+        default="",
+        help="Comma-separated manual stopwords to remove.",
+    )
+    ingest_parser.add_argument(
+        "--auto-stopwords",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+        help="Enable automatic stopwords generation from corpus statistics.",
+    )
+    ingest_parser.add_argument(
+        "--auto-stopwords-min-doc-ratio",
+        default=0.7,
+        type=float,
+        help="Minimum document ratio for auto stopwords generation.",
+    )
+    ingest_parser.add_argument(
+        "--auto-stopwords-max-terms",
+        default=200,
+        type=int,
+        help="Maximum number of automatically generated stopwords.",
+    )
+    ingest_parser.add_argument(
+        "--cleaning-options",
+        default=cleaning_flag_to_string(default_cleaning_options()),
+        help=(
+            "Comma-separated cleaning options. "
+            "Available: none, all, whitespace, accent_normalization, header_footer, "
+            "boilerplate, token_cleanup, html_strip."
+        ),
+    )
     _add_shared_runtime_flags(ingest_parser)
     _add_output_flag(ingest_parser)
     ingest_parser.set_defaults(handler=_handle_ingest)
@@ -198,26 +240,29 @@ def _handle_ingest(args: argparse.Namespace) -> dict[str, Any]:
         dict[str, Any]: Normalized ingestion payload.
 
     """
-    offline_policy = OfflinePolicy(args.offline_policy)
-    backend = BackendName(args.backend)
-
-    return {
-        "schema_version": "1.0",
-        "command": CommandName.INGEST.value,
-        "status": "planned",
-        "config": {
-            "input": args.input,
-            "offline_policy": offline_policy.value,
-            "proxy_url": args.proxy_url,
-            "backend": backend.value,
-            "backend_url": args.backend_url,
-            "index": args.index,
-        },
-        "notes": [
-            "Ingestion runtime is not implemented yet.",
-            "This payload validates CLI and schema contracts.",
-        ],
+    manual_stopwords = {
+        word.strip().lower() for word in str(args.manual_stopwords).split(",") if word.strip()
     }
+    config = IngestionConfig(
+        input_path=Path(args.input).expanduser().resolve(),
+        recursive=bool(args.recursive),
+        cleaning_options=cleaning_flag_from_string(str(args.cleaning_options)),
+        manual_stopwords=manual_stopwords,
+        auto_stopwords_enabled=bool(args.auto_stopwords),
+        auto_stopwords_min_doc_ratio=float(args.auto_stopwords_min_doc_ratio),
+        auto_stopwords_max_terms=int(args.auto_stopwords_max_terms),
+    )
+    result = run_ingestion(config)
+    payload = result.model_dump(mode="json")
+    payload["schema_version"] = "1.0"
+    payload["runtime"] = {
+        "offline_policy": OfflinePolicy(args.offline_policy).value,
+        "proxy_url": args.proxy_url,
+        "backend": BackendName(args.backend).value,
+        "backend_url": args.backend_url,
+        "index": args.index,
+    }
+    return payload
 
 
 def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:

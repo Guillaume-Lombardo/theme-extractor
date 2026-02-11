@@ -43,13 +43,15 @@ def test_extract_with_document_focus_emits_document_topics(capsys) -> None:
 
 
 def test_ingest_to_file_writes_json(tmp_path) -> None:
+    sample = tmp_path / "sample.txt"
+    sample.write_text("Bonjour le monde\\nPage 1/1\\nBonjour le monde\\n", encoding="utf-8")
     output_path = tmp_path / "ingest.json"
 
     exit_code = main(
         [
             "ingest",
             "--input",
-            str(tmp_path),
+            str(sample),
             "--offline-policy",
             "strict",
             "--output",
@@ -60,8 +62,28 @@ def test_ingest_to_file_writes_json(tmp_path) -> None:
     assert exit_code == 0
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     assert payload["command"] == "ingest"
-    assert payload["status"] == "planned"
-    assert payload["config"]["offline_policy"] == "strict"
+    assert payload["processed_documents"] == 1
+    assert payload["runtime"]["offline_policy"] == "strict"
+    assert payload["documents"][0]["path"] == str(sample.resolve())
+
+
+def test_ingest_accepts_none_cleaning_option(tmp_path, capsys) -> None:
+    sample = tmp_path / "sample.txt"
+    sample.write_text("Résumé !!!", encoding="utf-8")
+
+    exit_code = main(
+        [
+            "ingest",
+            "--input",
+            str(sample),
+            "--cleaning-options",
+            "none",
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["cleaning_options"] == "none"
 
 
 def test_benchmark_rejects_unknown_method() -> None:

@@ -21,19 +21,19 @@ Create a production-grade toolkit to compare topic extraction strategies on hete
 - [x] Define CLI root and subcommands skeleton
 
 ### Phase 2 - Ingestion and Cleaning
-- [ ] Implement ingestion pipeline for:
+- [x] Implement ingestion pipeline for:
   - pdf, doc/docx, xls/xlsx, ppt/pptx, msg, md, html, txt
-- [ ] Implement normalization/cleaning pipeline:
+- [x] Implement normalization/cleaning pipeline:
   - header/footer suppression
   - boilerplate removal
   - whitespace and encoding normalization
   - French accent normalization (`é/è/ê -> e`, etc.) with configurable behavior
   - language-aware token cleanup
-- [ ] Implement stopwords enrichment capabilities:
+- [x] Implement stopwords enrichment capabilities:
   - manual stopwords injection by user input/config
   - automatic stopwords discovery from corpus statistics
   - explicit toggle to disable automatic stopwords generation
-- [ ] Add ingestion quality tests on representative fixtures
+- [x] Add ingestion quality tests on representative fixtures
 
 ### Phase 3 - Strategy Implementations
 - [ ] Baselines:

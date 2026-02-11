@@ -6,13 +6,18 @@ from theme_extractor.cli import main
 
 
 def test_ingest_end2end_generates_json_output_file(tmp_path) -> None:
+    corpus_file = tmp_path / "doc.txt"
+    corpus_file.write_text(
+        "Résumé de politique monétaire\\nPage 1/3\\nRésumé de politique monétaire",
+        encoding="utf-8",
+    )
     output_path = tmp_path / "ingest-e2e.json"
 
     exit_code = main(
         [
             "ingest",
             "--input",
-            str(tmp_path),
+            str(corpus_file),
             "--output",
             str(output_path),
         ],
@@ -21,7 +26,8 @@ def test_ingest_end2end_generates_json_output_file(tmp_path) -> None:
     assert exit_code == 0
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     assert payload["command"] == "ingest"
-    assert payload["config"]["input"] == str(tmp_path)
+    assert payload["input_path"] == str(corpus_file.resolve())
+    assert payload["processed_documents"] == 1
 
 
 def test_extract_end2end_generates_json_output_file(tmp_path) -> None:
