@@ -29,10 +29,11 @@ class _BackendStub:
     sig_terms_response: dict[str, Any]
     sig_text_response: dict[str, Any]
     backend_name: str = "stub"
+    last_search_body: dict[str, Any] | None = None
 
     def search_documents(self, *, index: str, body: dict[str, Any]) -> dict[str, Any]:
         _ = index
-        _ = body
+        self.last_search_body = body
         return self.search_response
 
     def terms_aggregation(self, *, index: str, body: dict[str, Any]) -> dict[str, Any]:
@@ -193,3 +194,32 @@ def test_run_baseline_method_raises_for_non_baseline_method() -> None:
             ),
             output=_make_output(method=ExtractMethod.LLM, focus=OutputFocus.TOPICS),
         )
+
+
+def test_baseline_tfidf_uses_simple_query_string_for_boolean_syntax() -> None:
+    backend = _BackendStub(
+        search_response={"hits": {"hits": [{"_id": "doc-1", "_source": {"content": "alpha beta"}}]}},
+        terms_response={},
+        sig_terms_response={},
+        sig_text_response={},
+    )
+    run_baseline_method(
+        backend=backend,
+        request=BaselineRunRequest(
+            method=ExtractMethod.BASELINE_TFIDF,
+            index="idx",
+            focus=OutputFocus.TOPICS,
+            config=BaselineExtractionConfig(
+                query="facture OR impot OR copropriete",
+                fields=("content", "filename"),
+                top_n=2,
+            ),
+        ),
+        output=_make_output(method=ExtractMethod.BASELINE_TFIDF, focus=OutputFocus.TOPICS),
+    )
+    assert backend.last_search_body is not None
+    query = backend.last_search_body["query"]
+    assert "simple_query_string" in query
+    assert query["simple_query_string"]["query"] == "facture OR impot OR copropriete"
+    assert query["simple_query_string"]["fields"] == ["content", "filename"]
+    assert query["simple_query_string"]["default_operator"] == "and"

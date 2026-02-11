@@ -139,9 +139,10 @@ def _bulk_index(
 
     lines: list[str] = []
     for doc in docs:
+        action = {"index": {"_index": index, "_id": doc["_id"]}}
         lines.extend(
             [
-                f'{{"index":{{"_index":"{index}","_id":"{doc["_id"]}"}}}}',
+                json.dumps(action, ensure_ascii=False),
                 json.dumps(doc["_source"], ensure_ascii=False),
             ],
         )

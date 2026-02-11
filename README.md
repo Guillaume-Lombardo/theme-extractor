@@ -59,6 +59,16 @@ uv pip install pymupdf python-docx openpyxl python-pptx extract-msg
 
 ### 2) Start Elasticsearch (optionally with PostgreSQL)
 
+Install backend client dependency first (required for `extract`/`benchmark` commands):
+
+```bash
+# For Elasticsearch backend
+uv sync --group elasticsearch
+
+# For OpenSearch backend (optional alternative)
+# uv sync --group opensearch
+```
+
 Elasticsearch only:
 
 ```bash

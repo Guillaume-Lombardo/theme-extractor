@@ -74,7 +74,7 @@ def _get_tfidf_vectorizer() -> type[TfidfVectorizer]:
     """Return TfidfVectorizer class via lazy import.
 
     Returns:
-        Any: TfidfVectorizer class.
+        type[TfidfVectorizer]: TfidfVectorizer class.
 
     """
     from sklearn.feature_extraction.text import TfidfVectorizer  # noqa: PLC0415
@@ -97,10 +97,10 @@ def _normalized_query(config: BaselineExtractionConfig) -> dict[str, Any]:
         return {"match_all": {}}
 
     return {
-        "multi_match": {
+        "simple_query_string": {
             "query": query,
             "fields": list(config.fields),
-            "operator": "and",
+            "default_operator": "and",
         },
     }
 
