@@ -35,11 +35,26 @@ This repository currently provides:
 
 This project includes Docker Compose stacks to quickly test baseline extraction on a small local corpus in `data/raw/`.
 
+### 0) Optional `.env` Bootstrap
+
+You do not strictly need a `.env` file, but it helps keep commands shorter and consistent.
+
+```bash
+cp .env.template .env
+set -a; source .env; set +a
+```
+
 ### 1) Put Sample Documents In `data/raw/`
 
 ```bash
 mkdir -p data/raw data/out
 # Copy around a dozen files into data/raw/ (pdf/docx/xlsx/pptx/msg/md/html/txt...)
+```
+
+Install optional ingestion dependencies for office/pdf parsing:
+
+```bash
+uv pip install pymupdf python-docx openpyxl python-pptx extract-msg
 ```
 
 ### 2) Start Elasticsearch (optionally with PostgreSQL)
@@ -60,9 +75,9 @@ docker compose -f docker/compose.elasticsearch.yaml --profile postgres up -d
 
 ```bash
 uv run python docker/index_corpus.py \
-  --input data/raw \
-  --backend-url http://localhost:9200 \
-  --index theme_extractor \
+  --input "${THEME_EXTRACTOR_INPUT_DIR:-data/raw}" \
+  --backend-url "${THEME_EXTRACTOR_BACKEND_URL:-http://localhost:9200}" \
+  --index "${THEME_EXTRACTOR_INDEX:-theme_extractor}" \
   --cleaning-options all \
   --reset-index
 ```
@@ -103,6 +118,7 @@ uv run theme-extractor extract \
   --backend elasticsearch \
   --backend-url http://localhost:9200 \
   --index theme_extractor \
+  --query "facture OR impot OR copropriete" \
   --agg-field tokens \
   --focus topics \
   --output data/out/extract_significant_terms.json
@@ -116,10 +132,18 @@ uv run theme-extractor extract \
   --backend elasticsearch \
   --backend-url http://localhost:9200 \
   --index theme_extractor \
+  --query "facture OR impot OR copropriete" \
   --agg-field content \
   --focus topics \
   --output data/out/extract_significant_text.json
 ```
+
+Important note for `significant_terms` and `significant_text`:
+
+- Do not use `--query "match_all"` if you want meaningful significant results.
+- Significant aggregations compare a foreground subset (your query) against the corpus background.
+- With `match_all`, foreground and background are effectively the same, so empty or weak results are expected.
+- Use a focused business query (for example `facture`, `impot`, `copropriete`, `sinistre`, `contrat`) to surface truly distinctive terms.
 
 All baselines in one benchmark run:
 
@@ -131,6 +155,52 @@ uv run theme-extractor benchmark \
   --index theme_extractor \
   --focus both \
   --output data/out/benchmark_baselines.json
+```
+
+### 5) Recommended "Quality Benchmark" Preset
+
+For better interpretation quality on mixed corpora:
+
+1. Run broad baselines (`baseline_tfidf`, `terms`) on `match_all`.
+2. Run significant baselines with a focused query.
+
+Broad corpus run:
+
+```bash
+uv run theme-extractor benchmark \
+  --methods baseline_tfidf,terms \
+  --backend elasticsearch \
+  --backend-url http://localhost:9200 \
+  --index theme_extractor \
+  --query "match_all" \
+  --focus both \
+  --output data/out/benchmark_baselines_broad.json
+```
+
+Focused significant runs (recommended to keep method-specific aggregation fields):
+
+```bash
+uv run theme-extractor benchmark \
+  --methods significant_terms \
+  --backend elasticsearch \
+  --backend-url http://localhost:9200 \
+  --index theme_extractor \
+  --query "impot" \
+  --agg-field tokens \
+  --focus both \
+  --output data/out/benchmark_significant_terms.json
+```
+
+```bash
+uv run theme-extractor benchmark \
+  --methods significant_text \
+  --backend elasticsearch \
+  --backend-url http://localhost:9200 \
+  --index theme_extractor \
+  --query "impot" \
+  --agg-field content \
+  --focus both \
+  --output data/out/benchmark_significant_text.json
 ```
 
 ### OpenSearch Variant
@@ -145,9 +215,9 @@ Index (note port `9201`):
 
 ```bash
 uv run python docker/index_corpus.py \
-  --input data/raw \
-  --backend-url http://localhost:9201 \
-  --index theme_extractor \
+  --input "${THEME_EXTRACTOR_INPUT_DIR:-data/raw}" \
+  --backend-url "http://localhost:9201" \
+  --index "${THEME_EXTRACTOR_INDEX:-theme_extractor}" \
   --cleaning-options all \
   --reset-index
 ```
@@ -182,4 +252,90 @@ Optionally remove generated outputs:
 
 ```bash
 rm -f data/out/*.json
+```
+
+## Troubleshooting
+
+### `significant_terms` or `significant_text` returns empty topics
+
+Likely cause:
+
+- Query is too broad (`match_all`) so foreground ~= background.
+
+What to do:
+
+- Use a focused business query:
+  - `--query "facture OR impot OR copropriete"`
+- Keep method-specific aggregation fields:
+  - `significant_terms` with `--agg-field tokens`
+  - `significant_text` with `--agg-field content`
+
+### Baseline results are dominated by stopwords (`de`, `le`, `the`, ...)
+
+Likely causes:
+
+- Mixed-language corpus without enough stopword filtering.
+- Ingestion noise (OCR artifacts, technical markdown files mixed with business docs).
+
+What to do:
+
+- Re-index with full cleaning:
+  - `--cleaning-options all`
+- Exclude non-business files from `data/raw/` for benchmark runs.
+- Add manual stopwords during ingest:
+  - `--manual-stopwords "de,le,la,the,and,of"`
+- Optionally enable automatic corpus-based stopwords:
+  - `--auto-stopwords --auto-stopwords-min-doc-ratio 0.7`
+
+### Terms results contain many one-character tokens (`a`, `b`, `c`, ...)
+
+Likely causes:
+
+- OCR/text extraction noise.
+- Token field contains low-value tokens.
+
+What to do:
+
+- Ensure ingestion cleaning is enabled (`--cleaning-options all`).
+- Re-index after cleanup (`--reset-index`).
+- Verify you aggregate on `tokens` (not raw content) for `terms`.
+
+### `ModuleNotFoundError: No module named 'theme_extractor'`
+
+Likely cause:
+
+- Editable package not correctly installed after local changes.
+
+What to do:
+
+```bash
+uv pip install -e .
+uv run theme-extractor --help
+```
+
+### `ConnectError: [Errno 61] Connection refused`
+
+Likely cause:
+
+- Elasticsearch/OpenSearch container is not up.
+
+What to do:
+
+```bash
+docker compose -f docker/compose.elasticsearch.yaml up -d
+docker ps
+curl -s http://localhost:9200
+```
+
+### Elasticsearch 9 fails to start with upgrade error from 8.x data
+
+Typical error:
+
+- `cannot upgrade a node from version [8.x] directly to version [9.x]`
+
+What to do for local disposable test stacks:
+
+```bash
+docker compose -f docker/compose.elasticsearch.yaml down -v --remove-orphans
+docker compose -f docker/compose.elasticsearch.yaml up -d
 ```

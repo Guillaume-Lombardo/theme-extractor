@@ -4,16 +4,29 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
 import httpx
 
-from theme_extractor.domain import CleaningOptionFlag, default_cleaning_options
-from theme_extractor.ingestion.cleaning import apply_cleaning_options, tokenize_for_ingestion
-from theme_extractor.ingestion.extractors import extract_text, supported_suffixes
+# Ensure local package imports work when running this script from repository root.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = PROJECT_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
+
+from theme_extractor.domain import CleaningOptionFlag, default_cleaning_options  # noqa: E402
+from theme_extractor.ingestion.cleaning import apply_cleaning_options, tokenize_for_ingestion  # noqa: E402
+from theme_extractor.ingestion.extractors import extract_text, supported_suffixes  # noqa: E402
 
 _BULK_ERRORS_MESSAGE = "Bulk indexing reported errors."
+_BACKEND_CONNECTION_ERROR = (
+    "Cannot connect to backend at '{backend_url}'. "
+    "Start Docker services first, for example: "
+    "'docker compose -f docker/compose.elasticsearch.yaml up -d'."
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -24,9 +37,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     """
     parser = argparse.ArgumentParser(prog="index-corpus")
-    parser.add_argument("--input", default="data/raw", help="Input directory containing sample documents.")
-    parser.add_argument("--backend-url", default="http://localhost:9200", help="Backend URL.")
-    parser.add_argument("--index", default="theme_extractor", help="Index name to create/populate.")
+    parser.add_argument(
+        "--input",
+        default=os.getenv("THEME_EXTRACTOR_INPUT_DIR", "data/raw"),
+        help="Input directory containing sample documents.",
+    )
+    parser.add_argument(
+        "--backend-url",
+        default=os.getenv("THEME_EXTRACTOR_BACKEND_URL", "http://localhost:9200"),
+        help="Backend URL.",
+    )
+    parser.add_argument(
+        "--index",
+        default=os.getenv("THEME_EXTRACTOR_INDEX", "theme_extractor"),
+        help="Index name to create/populate.",
+    )
     parser.add_argument(
         "--cleaning-options",
         default="all",
@@ -180,14 +205,19 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     with httpx.Client(timeout=60.0) as client:
-        if args.reset_index:
-            _reset_index(client=client, backend_url=str(args.backend_url), index=str(args.index))
-        _bulk_index(
-            client=client,
-            backend_url=str(args.backend_url),
-            index=str(args.index),
-            docs=docs,
-        )
+        try:
+            if args.reset_index:
+                _reset_index(client=client, backend_url=str(args.backend_url), index=str(args.index))
+            _bulk_index(
+                client=client,
+                backend_url=str(args.backend_url),
+                index=str(args.index),
+                docs=docs,
+            )
+        except httpx.ConnectError as exc:
+            print(_BACKEND_CONNECTION_ERROR.format(backend_url=str(args.backend_url)))
+            print(f"Details: {exc}")
+            return 1
 
     print(f"Indexed {len(docs)} documents into index '{args.index}'.")
     return 0
