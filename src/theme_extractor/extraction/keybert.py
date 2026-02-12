@@ -17,8 +17,9 @@ from theme_extractor.domain import (
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from theme_extractor.extraction.baselines import BaselineExtractionConfig
     from theme_extractor.search.protocols import SearchBackend
+
+from theme_extractor.extraction.baselines import BaselineExtractionConfig  # noqa: TC001
 
 
 class KeyBertRunRequest(BaseModel):
@@ -27,7 +28,7 @@ class KeyBertRunRequest(BaseModel):
     Args:
         index (str): Target backend index.
         focus (OutputFocus): Output focus mode.
-        config (Any): Runtime extraction config (expected: `BaselineExtractionConfig`).
+        config (BaselineExtractionConfig): Runtime extraction config.
 
     """
 
@@ -35,7 +36,7 @@ class KeyBertRunRequest(BaseModel):
 
     index: str
     focus: OutputFocus
-    config: Any
+    config: BaselineExtractionConfig
 
 
 _KEYWORD_TERM_AND_SCORE_LENGTH = 2

@@ -133,3 +133,39 @@ def test_run_keybert_falls_back_to_tfidf_when_keybert_missing(monkeypatch) -> No
     assert output.topics[0].keywords
     assert output.document_topics is None
     assert "KeyBERT dependency missing; TF-IDF fallback was used." in output.notes
+
+
+def test_run_keybert_empty_corpus_with_topics_focus() -> None:
+    backend = _BackendStub(search_response={"hits": {"hits": []}})
+
+    output = run_keybert_method(
+        backend=backend,
+        request=KeyBertRunRequest(
+            index="idx",
+            focus=OutputFocus.TOPICS,
+            config=BaselineExtractionConfig(top_n=2),
+        ),
+        output=_make_output(focus=OutputFocus.TOPICS),
+    )
+
+    assert output.topics == []
+    assert output.document_topics is None
+    assert "KeyBERT executed with empty corpus from backend search." in output.notes
+
+
+def test_run_keybert_empty_corpus_with_both_focus() -> None:
+    backend = _BackendStub(search_response={"hits": {"hits": []}})
+
+    output = run_keybert_method(
+        backend=backend,
+        request=KeyBertRunRequest(
+            index="idx",
+            focus=OutputFocus.BOTH,
+            config=BaselineExtractionConfig(top_n=2),
+        ),
+        output=_make_output(focus=OutputFocus.BOTH),
+    )
+
+    assert output.topics == []
+    assert output.document_topics == []
+    assert "KeyBERT executed with empty corpus from backend search." in output.notes
