@@ -397,3 +397,38 @@ def test_llm_internal_openai_parser_path(monkeypatch) -> None:
         api_key="fake-key",
     )
     assert output == [("fiscalite", 0.99)]
+
+
+def test_report_end2end_from_extract_output(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+
+    extract_path = tmp_path / "extract.json"
+    report_path = tmp_path / "report.md"
+
+    extract_exit_code = main(
+        [
+            "extract",
+            "--method",
+            "keybert",
+            "--focus",
+            "topics",
+            "--output",
+            str(extract_path),
+        ],
+    )
+    assert extract_exit_code == 0
+
+    report_exit_code = main(
+        [
+            "report",
+            "--input",
+            str(extract_path),
+            "--output",
+            str(report_path),
+        ],
+    )
+    assert report_exit_code == 0
+
+    report_content = report_path.read_text(encoding="utf-8")
+    assert "# Theme Extractor Report" in report_content
+    assert "## Topics" in report_content

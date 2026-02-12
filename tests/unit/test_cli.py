@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import UTC, datetime
 
 import pytest
 
@@ -248,6 +249,43 @@ def test_doctor_backend_check_reports_error(monkeypatch, capsys) -> None:
     assert payload["checks"]["backend_connectivity"]["checked"] is True
     assert payload["checks"]["backend_connectivity"]["ok"] is False
     assert "_BackendUnavailableError" in payload["checks"]["backend_connectivity"]["error"]
+
+
+def test_report_reads_extract_json_and_emits_markdown(tmp_path, capsys) -> None:
+    input_path = tmp_path / "extract.json"
+    payload = {
+        "schema_version": "1.0",
+        "focus": "topics",
+        "topics": [
+            {
+                "topic_id": 0,
+                "label": "invoice",
+                "score": 1.0,
+                "keywords": [{"term": "invoice", "score": 1.0}],
+                "document_ids": ["doc-1"],
+                "representative_documents": [],
+                "summary": None,
+            },
+        ],
+        "document_topics": None,
+        "notes": ["note"],
+        "metadata": {
+            "run_id": "run-1",
+            "generated_at": datetime.now(tz=UTC).isoformat(),
+            "command": "extract",
+            "method": "keybert",
+            "offline_policy": "strict",
+            "backend": "elasticsearch",
+            "index": "theme_extractor",
+        },
+    }
+    input_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    exit_code = main(["report", "--input", str(input_path), "--output", "-"])
+    assert exit_code == 0
+    rendered = capsys.readouterr().out
+    assert "# Theme Extractor Report" in rendered
+    assert "invoice" in rendered
 
 
 def test_main_applies_proxy_environment_from_flag(tmp_path, monkeypatch) -> None:

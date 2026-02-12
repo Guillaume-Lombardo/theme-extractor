@@ -77,7 +77,7 @@ Create a production-grade toolkit to compare topic extraction strategies on hete
   - `pytest -m integration --no-cov`
   - `pytest -m end2end`
   - `pre-commit run --all-files`
-- [ ] Add markdown report generation from unified JSON outputs:
+- [x] Add markdown report generation from unified JSON outputs:
   - strategy summary
   - top topics with representative keywords/documents
   - overlap/comparison insights

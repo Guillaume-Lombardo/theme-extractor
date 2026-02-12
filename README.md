@@ -10,6 +10,7 @@ Use one unified CLI with subcommands:
 - `theme-extractor extract`
 - `theme-extractor benchmark`
 - `theme-extractor doctor`
+- `theme-extractor report`
 
 Current phase exposes stable command contracts and raw JSON outputs.
 
@@ -39,6 +40,27 @@ What it checks:
 - optional dependency groups (`elasticsearch`, `opensearch`, `bert`, `llm`)
 - expected local model aliases in `THEME_EXTRACTOR_LOCAL_MODELS_DIR`
 - optional backend connectivity probe (`--check-backend`)
+
+## Markdown Reports (`report`)
+
+Use `report` to convert one extract/benchmark JSON into a markdown summary.
+
+From extraction output:
+
+```bash
+uv run theme-extractor report \
+  --input data/out/extract_tfidf.json \
+  --output data/out/report_extract.md
+```
+
+From benchmark output:
+
+```bash
+uv run theme-extractor report \
+  --input data/out/benchmark_baselines.json \
+  --title "Baseline Benchmark Report" \
+  --output data/out/report_benchmark.md
+```
 
 ## Project Agent Tooling
 
