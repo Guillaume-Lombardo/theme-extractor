@@ -154,6 +154,35 @@ uv run theme-extractor extract \
   --output data/out/extract_significant_text.json
 ```
 
+KeyBERT:
+
+```bash
+uv run theme-extractor extract \
+  --method keybert \
+  --backend elasticsearch \
+  --backend-url http://localhost:9200 \
+  --index theme_extractor \
+  --focus both \
+  --query "match_all" \
+  --fields content,filename,path \
+  --source-field content \
+  --topn 25 \
+  --search-size 200 \
+  --output data/out/extract_keybert.json
+```
+
+KeyBERT benchmark example:
+
+```bash
+uv run theme-extractor benchmark \
+  --methods keybert,baseline_tfidf \
+  --backend elasticsearch \
+  --backend-url http://localhost:9200 \
+  --index theme_extractor \
+  --focus both \
+  --output data/out/benchmark_keybert.json
+```
+
 BERTopic (matrix options):
 
 ```bash
@@ -174,6 +203,25 @@ uv run theme-extractor extract \
 ```
 
 Alternative with NMF reduction:
+
+```bash
+uv run theme-extractor extract \
+  --method bertopic \
+  --backend elasticsearch \
+  --backend-url http://localhost:9200 \
+  --index theme_extractor \
+  --focus both \
+  --query "match_all" \
+  --bertopic-use-embeddings \
+  --bertopic-embedding-model bge-m3 \
+  --bertopic-dim-reduction nmf \
+  --bertopic-clustering kmeans \
+  --bertopic-nr-topics 8 \
+  --bertopic-min-topic-size 5 \
+  --output data/out/extract_bertopic-nmf-kmeans.json
+```
+
+Alternative with UMAP reduction:
 
 ```bash
 uv run theme-extractor extract \
@@ -236,6 +284,7 @@ uv run theme-extractor extract \
 LLM notes:
 - In `strict` mode, the strategy never performs network calls and falls back to TF-IDF.
 - In `preload_or_first_run`, if API credentials are missing or provider runtime fails, the strategy still falls back to TF-IDF and records the reason in `notes`.
+- If `keybert` is missing at runtime, the `keybert` method falls back to TF-IDF and records the fallback reason in `notes`.
 
 Important note for `significant_terms` and `significant_text`:
 
