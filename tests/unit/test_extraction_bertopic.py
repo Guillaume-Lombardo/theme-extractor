@@ -21,15 +21,19 @@ from theme_extractor.extraction.bertopic import (
     run_bertopic_method,
 )
 
+_EXPECTED_BERTOPIC_SEARCH_SIZE_CAP = 1000
+_EXPECTED_BERTOPIC_CAP_NOTE = "BERTopic search_size was capped to 1000 to limit memory usage."
+
 
 @dataclass
 class _BackendStub:
     search_response: dict[str, Any]
     backend_name: str = "stub"
+    last_body: dict[str, Any] | None = None
 
     def search_documents(self, *, index: str, body: dict[str, Any]) -> dict[str, Any]:
         _ = index
-        _ = body
+        self.last_body = body
         return self.search_response
 
     def terms_aggregation(self, *, index: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR6301
@@ -109,3 +113,58 @@ def test_run_bertopic_empty_corpus_sets_empty_doc_topics() -> None:
     assert output.topics == []
     assert output.document_topics == []
     assert "BERTopic executed with empty corpus from backend search." in output.notes
+
+
+def test_run_bertopic_single_document_returns_empty_output() -> None:
+    backend = _BackendStub(
+        search_response={
+            "hits": {
+                "hits": [
+                    {"_id": "doc-1", "_source": {"content": "single document only"}},
+                ],
+            },
+        },
+    )
+
+    output = run_bertopic_method(
+        backend=backend,
+        request=BertopicRunRequest(
+            index="idx",
+            focus=OutputFocus.BOTH,
+            baseline_config=BaselineExtractionConfig(),
+            bertopic_config=BertopicExtractionConfig(),
+        ),
+        output=_make_output(focus=OutputFocus.BOTH),
+    )
+
+    assert output.topics == []
+    assert output.document_topics == []
+    assert "BERTopic requires at least 2 usable documents; output returned empty topics." in output.notes
+
+
+def test_run_bertopic_caps_search_size_for_memory() -> None:
+    backend = _BackendStub(
+        search_response={
+            "hits": {
+                "hits": [
+                    {"_id": "doc-1", "_source": {"content": "invoice tax payment declaration"}},
+                    {"_id": "doc-2", "_source": {"content": "invoice due date payment tax"}},
+                ],
+            },
+        },
+    )
+
+    output = run_bertopic_method(
+        backend=backend,
+        request=BertopicRunRequest(
+            index="idx",
+            focus=OutputFocus.TOPICS,
+            baseline_config=BaselineExtractionConfig(search_size=10_000),
+            bertopic_config=BertopicExtractionConfig(min_topic_size=1, nr_topics=2),
+        ),
+        output=_make_output(focus=OutputFocus.TOPICS),
+    )
+
+    assert backend.last_body is not None
+    assert backend.last_body["size"] == _EXPECTED_BERTOPIC_SEARCH_SIZE_CAP
+    assert _EXPECTED_BERTOPIC_CAP_NOTE in output.notes

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict
+from scipy.sparse import csr_matrix
 from sklearn.cluster import KMeans
 from sklearn.decomposition import NMF, TruncatedSVD
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -27,15 +28,20 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from numpy.typing import NDArray
-    from scipy.sparse import csr_matrix
 
     from theme_extractor.search.protocols import SearchBackend
 
+    type Matrix = NDArray | csr_matrix
+
 
 _EMPTY_CORPUS_NOTE = "BERTopic executed with empty corpus from backend search."
+_MIN_DOCS_FOR_CLUSTERING = 2
+_SMALL_CORPUS_NOTE = "BERTopic requires at least 2 usable documents; output returned empty topics."
 _UMAP_FALLBACK_NOTE = "UMAP unavailable or failed; dimensionality reduction fell back to none."
 _HDBSCAN_FALLBACK_NOTE = "HDBSCAN dependency missing; clustering fell back to kmeans."
 _EMBEDDINGS_FALLBACK_NOTE = "Embedding dependency missing; BERTopic fell back to TF-IDF vectors."
+_SEARCH_SIZE_LIMIT = 1000
+_SEARCH_SIZE_LIMIT_NOTE = f"BERTopic search_size was capped to {_SEARCH_SIZE_LIMIT} to limit memory usage."
 
 
 class BertopicExtractionConfig(BaseModel):
@@ -96,8 +102,9 @@ def _normalized_query(query: str, fields: Sequence[str]) -> dict[str, Any]:
 
 
 def _search_body(config: BaselineExtractionConfig) -> dict[str, Any]:
+    effective_size = max(1, min(config.search_size, _SEARCH_SIZE_LIMIT))
     return {
-        "size": max(1, config.search_size),
+        "size": effective_size,
         "query": _normalized_query(config.query, config.fields),
         "_source": {"includes": [config.source_field]},
     }
@@ -109,12 +116,11 @@ def _choose_k(n_docs: int) -> int:
     return max(2, min(20, int(math.sqrt(n_docs)) + 1))
 
 
-def _build_tfidf_matrix(documents: list[str]) -> tuple[csr_matrix, NDArray, NDArray]:
+def _build_tfidf_matrix(documents: list[str]) -> tuple[csr_matrix, NDArray]:
     vectorizer = TfidfVectorizer(ngram_range=(1, 3), min_df=1, max_features=50_000)
     sparse_tfidf = vectorizer.fit_transform(documents)
     feature_names = vectorizer.get_feature_names_out()
-    dense_tfidf = sparse_tfidf.toarray()
-    return sparse_tfidf, dense_tfidf, feature_names
+    return sparse_tfidf, feature_names
 
 
 def _make_embeddings_if_enabled(
@@ -137,10 +143,10 @@ def _make_embeddings_if_enabled(
 
 def _apply_reduction(
     *,
-    matrix: NDArray,
+    matrix: Matrix,
     reduce_dim: BertopicDimReduction,
     seed: int,
-) -> tuple[NDArray, str | None]:
+) -> tuple[Matrix, str | None]:
     if reduce_dim == BertopicDimReduction.NONE:
         return matrix, None
 
@@ -161,10 +167,10 @@ def _apply_reduction(
 
 def _apply_svd_reduction(
     *,
-    matrix: NDArray,
+    matrix: Matrix,
     n_components: int,
     seed: int,
-) -> tuple[NDArray, str | None]:
+) -> tuple[Matrix, str | None]:
     try:
         reduced = TruncatedSVD(
             n_components=n_components,
@@ -177,10 +183,10 @@ def _apply_svd_reduction(
 
 def _apply_nmf_reduction(
     *,
-    matrix: NDArray,
+    matrix: Matrix,
     n_components: int,
     seed: int,
-) -> tuple[NDArray, str | None]:
+) -> tuple[Matrix, str | None]:
     try:
         reduced = NMF(
             n_components=n_components,
@@ -194,10 +200,10 @@ def _apply_nmf_reduction(
 
 def _apply_umap_reduction(
     *,
-    matrix: NDArray,
+    matrix: Matrix,
     n_components: int,
     seed: int,
-) -> tuple[NDArray, str | None]:
+) -> tuple[Matrix, str | None]:
     try:
         import umap  # noqa: PLC0415
     except ImportError:
@@ -360,8 +366,8 @@ def _compute_clustering_inputs(
     request: BertopicRunRequest,
     documents: list[str],
     output: UnifiedExtractionOutput,
-) -> tuple[csr_matrix, NDArray, NDArray, NDArray]:
-    sparse_tfidf, dense_tfidf, feature_names = _build_tfidf_matrix(documents)
+) -> tuple[csr_matrix, NDArray, NDArray]:
+    sparse_tfidf, feature_names = _build_tfidf_matrix(documents)
     embedding_vectors, embedding_note = _make_embeddings_if_enabled(
         use_embeddings=request.bertopic_config.use_embeddings,
         embedding_model=request.bertopic_config.embedding_model,
@@ -370,7 +376,8 @@ def _compute_clustering_inputs(
     if embedding_note:
         output.notes.append(embedding_note)
 
-    base_matrix = embedding_vectors if embedding_vectors is not None else dense_tfidf
+    base_matrix: Matrix
+    base_matrix = embedding_vectors if embedding_vectors is not None else sparse_tfidf
     reduced_matrix, reduction_note = _apply_reduction(
         matrix=base_matrix,
         reduce_dim=request.bertopic_config.reduce_dim,
@@ -379,8 +386,10 @@ def _compute_clustering_inputs(
     if reduction_note:
         output.notes.append(reduction_note)
 
+    clustering_matrix = _to_dense_matrix(reduced_matrix)
+
     labels, clustering_note = _cluster_labels(
-        matrix=reduced_matrix,
+        matrix=clustering_matrix,
         clustering=request.bertopic_config.clustering,
         nr_topics=request.bertopic_config.nr_topics,
         seed=request.bertopic_config.seed,
@@ -388,7 +397,13 @@ def _compute_clustering_inputs(
     )
     if clustering_note:
         output.notes.append(clustering_note)
-    return sparse_tfidf, dense_tfidf, feature_names, labels
+    return sparse_tfidf, feature_names, labels
+
+
+def _to_dense_matrix(matrix: Matrix) -> NDArray:
+    if isinstance(matrix, csr_matrix):
+        return cast("NDArray", matrix.toarray())
+    return cast("NDArray", np.asarray(matrix))
 
 
 def run_bertopic_method(
@@ -415,15 +430,20 @@ def run_bertopic_method(
         source_field=request.baseline_config.source_field,
     )
 
+    if request.baseline_config.search_size > _SEARCH_SIZE_LIMIT:
+        output.notes.append(_SEARCH_SIZE_LIMIT_NOTE)
+
     if not documents:
         return _set_empty_output(output=output, focus=request.focus, note=_EMPTY_CORPUS_NOTE)
+    if len(documents) < _MIN_DOCS_FOR_CLUSTERING:
+        return _set_empty_output(output=output, focus=request.focus, note=_SMALL_CORPUS_NOTE)
 
-    sparse_tfidf, dense_tfidf, feature_names, labels = _compute_clustering_inputs(
+    sparse_tfidf, feature_names, labels = _compute_clustering_inputs(
         request=request,
         documents=documents,
         output=output,
     )
-    if dense_tfidf.shape[0] < 2 or dense_tfidf.shape[1] < 2:  # noqa: PLR2004
+    if sparse_tfidf.shape[1] < 2:  # noqa: PLR2004
         return _set_empty_output(output=output, focus=request.focus, note=_EMPTY_CORPUS_NOTE)
 
     topics, topic_id_map = _build_topics_from_clusters(
