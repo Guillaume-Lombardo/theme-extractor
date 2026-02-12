@@ -50,13 +50,13 @@ Create a production-grade toolkit to compare topic extraction strategies on hete
 - [x] LLM strategy with offline-compatible fallback behavior
 
 ### Phase 4 - Unified Restitution and Topic Characterization
-- [ ] Standardize all outputs to one schema
-- [ ] Add topic characterization layer:
+- [x] Standardize all outputs to one schema
+- [x] Add topic characterization layer:
   - labels
   - representative keywords
   - representative documents
   - optional short summary/explanation
-- [ ] Add comparison report across strategies
+- [x] Add comparison report across strategies
 
 ### Phase 5 - Hardening
 - [ ] Expand integration/end2end scenarios

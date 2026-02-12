@@ -5,6 +5,7 @@ from theme_extractor.domain.contracts import (
     DocumentTopicLink,
     ExtractionRunMetadata,
     TopicKeyword,
+    TopicRepresentativeDocument,
     TopicResult,
     UnifiedExtractionOutput,
 )
@@ -43,6 +44,7 @@ __all__ = [
     "OfflinePolicy",
     "OutputFocus",
     "TopicKeyword",
+    "TopicRepresentativeDocument",
     "TopicResult",
     "UnifiedExtractionOutput",
     "cleaning_flag_from_string",

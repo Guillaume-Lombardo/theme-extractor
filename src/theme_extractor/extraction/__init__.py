@@ -10,6 +10,10 @@ from theme_extractor.extraction.bertopic import (
     BertopicRunRequest,
     run_bertopic_method,
 )
+from theme_extractor.extraction.characterization import (
+    build_benchmark_comparison,
+    characterize_output,
+)
 from theme_extractor.extraction.keybert import (
     KeyBertExtractionConfig,
     KeyBertRunRequest,
@@ -26,6 +30,8 @@ __all__ = [
     "KeyBertRunRequest",
     "LlmExtractionConfig",
     "LlmRunRequest",
+    "build_benchmark_comparison",
+    "characterize_output",
     "run_baseline_method",
     "run_bertopic_method",
     "run_keybert_method",

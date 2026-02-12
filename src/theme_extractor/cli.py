@@ -39,6 +39,8 @@ from theme_extractor.extraction import (
     KeyBertRunRequest,
     LlmExtractionConfig,
     LlmRunRequest,
+    build_benchmark_comparison,
+    characterize_output,
     run_baseline_method,
     run_bertopic_method,
     run_keybert_method,
@@ -61,6 +63,7 @@ _BASELINE_METHODS = {
     ExtractMethod.SIGNIFICANT_TEXT,
 }
 _SEARCH_DRIVEN_METHODS = _BASELINE_METHODS | {ExtractMethod.KEYBERT, ExtractMethod.LLM}
+_UNSUPPORTED_EXTRACT_METHOD_ERROR = "Unsupported extract method: {method!r}."
 
 
 def _env_bool(name: str, *, default_value: bool) -> bool:
@@ -665,6 +668,9 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
     Returns:
         UnifiedExtractionOutput: Unified extraction output payload.
 
+    Raises:
+        ValueError: If method is not wired in extract execution flow.
+
     """
     method = parse_extract_method(args.method)
     focus = OutputFocus(args.focus)
@@ -698,7 +704,7 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
     )
     if _is_baseline_method(method):
         search_backend = _build_baseline_backend(args=args, backend=backend)
-        return run_baseline_method(
+        output = run_baseline_method(
             backend=search_backend,
             request=BaselineRunRequest(
                 method=method,
@@ -708,9 +714,10 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
             ),
             output=output,
         )
+        return characterize_output(output)
     if method == ExtractMethod.KEYBERT:
         search_backend = _build_baseline_backend(args=args, backend=backend)
-        return run_keybert_method(
+        output = run_keybert_method(
             backend=search_backend,
             request=KeyBertRunRequest(
                 index=str(args.index),
@@ -720,9 +727,10 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
             ),
             output=output,
         )
+        return characterize_output(output)
     if method == ExtractMethod.BERTOPIC:
         search_backend = _build_baseline_backend(args=args, backend=backend)
-        return run_bertopic_method(
+        output = run_bertopic_method(
             backend=search_backend,
             request=BertopicRunRequest(
                 index=str(args.index),
@@ -732,9 +740,10 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
             ),
             output=output,
         )
+        return characterize_output(output)
     if method == ExtractMethod.LLM:
         search_backend = _build_baseline_backend(args=args, backend=backend)
-        return run_llm_method(
+        output = run_llm_method(
             backend=search_backend,
             request=LlmRunRequest(
                 index=str(args.index),
@@ -745,8 +754,9 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
             ),
             output=output,
         )
+        return characterize_output(output)
 
-    return output
+    raise ValueError(_UNSUPPORTED_EXTRACT_METHOD_ERROR.format(method=method))
 
 
 def _handle_benchmark(args: argparse.Namespace) -> BenchmarkOutput:
@@ -842,9 +852,13 @@ def _handle_benchmark(args: argparse.Namespace) -> BenchmarkOutput:
                 output=output,
             )
 
-        outputs[method.value] = output
+        outputs[method.value] = characterize_output(output)
 
-    return BenchmarkOutput(methods=methods, outputs=outputs)
+    return BenchmarkOutput(
+        methods=methods,
+        outputs=outputs,
+        comparison=build_benchmark_comparison(outputs),
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
