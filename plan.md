@@ -81,7 +81,7 @@ Create a production-grade toolkit to compare topic extraction strategies on hete
   - strategy summary
   - top topics with representative keywords/documents
   - overlap/comparison insights
-- [ ] Add quantitative evaluation utilities:
+- [x] Add quantitative evaluation utilities:
   - topic coherence proxies
   - inter-topic diversity
   - run-to-run stability (seed sensitivity)
@@ -93,14 +93,14 @@ Create a production-grade toolkit to compare topic extraction strategies on hete
   - streaming mode for large corpora (avoid retaining full text payloads)
   - optional embedding cache with deterministic keys/versioning
 
-### phase 7 - Rationalyse documentation
-- [ ] make the readme clearer for an outsider for the project.
-- [ ] Make a folder `howto` containing markdown files (the main commands and variant examples and theirs up and downs):
-  - [ ] for making an ingest
-  - [ ] for making a theme extraction and it's interpretation report
-  - [ ] for making a benchmark and choosing the best option
-  - [ ] How to make a report
-- [ ] make a sphinx documentation with all the docstrings (including the readme and the howtos)
+### Phase 7 - Rationalize documentation
+- [ ] Make the README clearer for external users.
+- [ ] Make a folder `howto` containing markdown files (main commands, variant examples, and their ups and downs):
+  - [ ] How to ingest a corpus
+  - [ ] How to run theme extraction and interpret its report
+  - [ ] How to run a benchmark and choose the best strategy
+  - [ ] How to generate a report
+- [ ] Make a Sphinx documentation including docstrings, README, and how-to guides.
 
 ## Branch and PR Policy
 - [ ] Execute each run/phase/feature in its own dedicated branch.

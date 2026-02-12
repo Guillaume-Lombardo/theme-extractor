@@ -95,7 +95,7 @@ def _topic_coherence_proxy(output: UnifiedExtractionOutput) -> float | None:
         scored = [
             float(keyword.score)
             for keyword in topic.keywords
-            if isinstance(keyword.score, int | float) and keyword.score > 0
+            if isinstance(keyword.score, (int, float)) and keyword.score > 0
         ]
         if scored:
             ranked = sorted(scored, reverse=True)
