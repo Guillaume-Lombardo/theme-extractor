@@ -93,6 +93,15 @@ Create a production-grade toolkit to compare topic extraction strategies on hete
   - streaming mode for large corpora (avoid retaining full text payloads)
   - optional embedding cache with deterministic keys/versioning
 
+### phase 7 - Rationalyse documentation
+- [ ] make the readme clearer for an outsider for the project.
+- [ ] Make a folder `howto` containing markdown files (the main commands and variant examples and theirs up and downs):
+  - [ ] for making an ingest
+  - [ ] for making a theme extraction and it's interpretation report
+  - [ ] for making a benchmark and choosing the best option
+  - [ ] How to make a report
+- [ ] make a sphinx documentation with all the docstrings (including the readme and the howtos)
+
 ## Branch and PR Policy
 - [ ] Execute each run/phase/feature in its own dedicated branch.
 - [ ] Close each run/phase/feature with a GitHub Pull Request.

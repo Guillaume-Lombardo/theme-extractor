@@ -288,6 +288,46 @@ def test_report_reads_extract_json_and_emits_markdown(tmp_path, capsys) -> None:
     assert "invoice" in rendered
 
 
+def test_evaluate_reads_extract_json_and_emits_metrics(tmp_path, capsys) -> None:
+    input_path = tmp_path / "extract.json"
+    payload = {
+        "schema_version": "1.0",
+        "focus": "topics",
+        "topics": [
+            {
+                "topic_id": 0,
+                "label": "invoice",
+                "score": 1.0,
+                "keywords": [
+                    {"term": "invoice", "score": 1.0},
+                    {"term": "tax", "score": 0.5},
+                ],
+                "document_ids": ["doc-1"],
+                "representative_documents": [],
+                "summary": None,
+            },
+        ],
+        "document_topics": None,
+        "notes": ["note"],
+        "metadata": {
+            "run_id": "run-1",
+            "generated_at": datetime.now(tz=UTC).isoformat(),
+            "command": "extract",
+            "method": "keybert",
+            "offline_policy": "strict",
+            "backend": "elasticsearch",
+            "index": "theme_extractor",
+        },
+    }
+    input_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    exit_code = main(["evaluate", "--input", str(input_path), "--output", "-"])
+    assert exit_code == 0
+    metrics = json.loads(capsys.readouterr().out)
+    assert metrics["command"] == "evaluate"
+    assert metrics["summary"]["extract_count"] == 1
+
+
 def test_main_applies_proxy_environment_from_flag(tmp_path, monkeypatch) -> None:
     sample = tmp_path / "sample.txt"
     sample.write_text("Bonjour le monde", encoding="utf-8")

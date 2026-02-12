@@ -11,6 +11,7 @@ Use one unified CLI with subcommands:
 - `theme-extractor benchmark`
 - `theme-extractor doctor`
 - `theme-extractor report`
+- `theme-extractor evaluate`
 
 Current phase exposes stable command contracts and raw JSON outputs.
 
@@ -61,6 +62,34 @@ uv run theme-extractor report \
   --title "Baseline Benchmark Report" \
   --output data/out/report_benchmark.md
 ```
+
+## Quantitative Evaluation (`evaluate`)
+
+Use `evaluate` to compute quantitative proxy metrics from one or multiple
+extract/benchmark JSON payloads.
+
+Single extract evaluation:
+
+```bash
+uv run theme-extractor evaluate \
+  --input data/out/extract_keybert.json \
+  --output data/out/evaluation_keybert.json
+```
+
+Multiple payload evaluation:
+
+```bash
+uv run theme-extractor evaluate \
+  --input data/out/extract_keybert_seed42.json \
+  --input data/out/extract_keybert_seed123.json \
+  --input data/out/benchmark_baselines.json \
+  --output data/out/evaluation_all.json
+```
+
+Provided proxies:
+- topic coherence proxy (keyword-mass concentration / compactness fallback)
+- inter-topic diversity (1 - mean pairwise keyword Jaccard)
+- run-to-run stability per method (pairwise keyword Jaccard across runs)
 
 ## Project Agent Tooling
 
