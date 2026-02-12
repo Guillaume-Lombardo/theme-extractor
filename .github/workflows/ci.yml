@@ -33,13 +33,13 @@ jobs:
         run: uv run ty check src tests
 
       - name: Unit tests
-        run: uv run pytest -m unit
+        run: uv run pytest -m unit --no-cov
 
       - name: Integration tests
         run: uv run pytest -m integration --no-cov
 
       - name: End2end tests
-        run: uv run pytest -m end2end
+        run: uv run pytest -m end2end --no-cov
 
       - name: Pre-commit
         run: uv run pre-commit run --all-files
