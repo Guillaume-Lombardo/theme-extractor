@@ -87,14 +87,25 @@ def test_extract_to_stdout_returns_normalized_topics_payload(capsys, monkeypatch
     assert payload["metadata"]["method"] == "keybert"
 
 
-def test_extract_with_document_focus_emits_document_topics(capsys) -> None:
-    exit_code = main(["extract", "--method", "bertopic", "--focus", "documents"])
+def test_extract_with_document_focus_emits_document_topics(capsys, monkeypatch) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", _backend_stub)
+    exit_code = main(
+        [
+            "extract",
+            "--method",
+            "bertopic",
+            "--focus",
+            "documents",
+            "--bertopic-min-topic-size",
+            "1",
+        ],
+    )
 
     assert exit_code == 0
     payload = json.loads(capsys.readouterr().out)
 
     assert payload["focus"] == "documents"
-    assert payload["document_topics"] == []
+    assert payload["document_topics"]
 
 
 def test_ingest_to_file_writes_json(tmp_path) -> None:
