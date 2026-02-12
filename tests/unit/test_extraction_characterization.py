@@ -16,6 +16,8 @@ from theme_extractor.extraction.characterization import build_benchmark_comparis
 
 _EXPECTED_REPRESENTATIVE_DOCUMENTS = 3
 _EXPECTED_METHOD_COUNT = 2
+_EXPECTED_TOPIC_ONE_DOC_A_RANK = 4
+_EXPECTED_TOPIC_ONE_DOC_B_RANK = 2
 
 
 def _metadata_for(method: ExtractMethod) -> ExtractionRunMetadata:
@@ -89,3 +91,31 @@ def test_build_benchmark_comparison_emits_pairwise_overlap() -> None:
     overlap = comparison["pairwise_overlap"][0]
     assert overlap["overlap_count"] == 1
     assert overlap["overlap_terms_preview"] == ["beta"]
+
+
+def test_characterize_output_uses_document_ranks_from_same_topic_only() -> None:
+    output = UnifiedExtractionOutput(
+        focus=OutputFocus.BOTH,
+        topics=[
+            TopicResult(
+                topic_id=1,
+                label="tfidf",
+                keywords=[TopicKeyword(term="prudential", score=0.8)],
+                document_ids=["doc-a", "doc-b"],
+            ),
+        ],
+        document_topics=[
+            DocumentTopicLink(document_id="doc-a", topic_id=0, rank=1),
+            DocumentTopicLink(document_id="doc-a", topic_id=1, rank=4),
+            DocumentTopicLink(document_id="doc-b", topic_id=1, rank=2),
+        ],
+        metadata=_metadata_for(ExtractMethod.BERTOPIC),
+    )
+
+    enriched = characterize_output(output)
+    reps = enriched.topics[0].representative_documents
+
+    assert reps[0].document_id == "doc-a"
+    assert reps[0].rank == _EXPECTED_TOPIC_ONE_DOC_A_RANK
+    assert reps[1].document_id == "doc-b"
+    assert reps[1].rank == _EXPECTED_TOPIC_ONE_DOC_B_RANK

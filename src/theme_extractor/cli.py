@@ -63,6 +63,7 @@ _BASELINE_METHODS = {
     ExtractMethod.SIGNIFICANT_TEXT,
 }
 _SEARCH_DRIVEN_METHODS = _BASELINE_METHODS | {ExtractMethod.KEYBERT, ExtractMethod.LLM}
+_UNSUPPORTED_EXTRACT_METHOD_ERROR = "Unsupported extract method: {method!r}."
 
 
 def _env_bool(name: str, *, default_value: bool) -> bool:
@@ -667,6 +668,9 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
     Returns:
         UnifiedExtractionOutput: Unified extraction output payload.
 
+    Raises:
+        ValueError: If method is not wired in extract execution flow.
+
     """
     method = parse_extract_method(args.method)
     focus = OutputFocus(args.focus)
@@ -752,7 +756,7 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
         )
         return characterize_output(output)
 
-    return characterize_output(output)
+    raise ValueError(_UNSUPPORTED_EXTRACT_METHOD_ERROR.format(method=method))
 
 
 def _handle_benchmark(args: argparse.Namespace) -> BenchmarkOutput:

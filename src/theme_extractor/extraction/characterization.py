@@ -63,12 +63,14 @@ def _infer_label(existing_label: str | None, keyword_terms: list[str], topic_id:
 
 def _representative_documents(
     topic_document_ids: list[str],
+    topic_id: int,
     output: UnifiedExtractionOutput,
 ) -> list[TopicRepresentativeDocument]:
     """Build representative documents for one topic.
 
     Args:
         topic_document_ids (list[str]): Topic document IDs.
+        topic_id (int): Current topic identifier.
         output (UnifiedExtractionOutput): Unified extraction output.
 
     Returns:
@@ -81,7 +83,10 @@ def _representative_documents(
     rank_by_id: dict[str, int] = {}
     if output.document_topics:
         for link in output.document_topics:
-            if link.rank is not None and link.document_id not in rank_by_id:
+            if link.topic_id != topic_id or link.rank is None:
+                continue
+            previous_rank = rank_by_id.get(link.document_id)
+            if previous_rank is None or link.rank < previous_rank:
                 rank_by_id[link.document_id] = link.rank
 
     ordered_ids = _dedupe_preserve_order(topic_document_ids)
@@ -124,7 +129,11 @@ def characterize_output(output: UnifiedExtractionOutput) -> UnifiedExtractionOut
     for topic in output.topics:
         keyword_terms = [keyword.term for keyword in topic.keywords if keyword.term]
         topic.label = _infer_label(topic.label, keyword_terms, topic.topic_id)
-        topic.representative_documents = _representative_documents(topic.document_ids, output)
+        topic.representative_documents = _representative_documents(
+            topic.document_ids,
+            topic.topic_id,
+            output,
+        )
         topic.summary = _build_topic_summary(keyword_terms, len(topic.document_ids))
 
     if output.focus in {OutputFocus.DOCUMENTS, OutputFocus.BOTH} and output.document_topics is None:
