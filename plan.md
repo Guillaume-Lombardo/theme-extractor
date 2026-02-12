@@ -64,6 +64,35 @@ Create a production-grade toolkit to compare topic extraction strategies on hete
 - [x] Finalize CLI docs and usage recipes
 - [x] Pre-PR gate: all test suites green
 
+### Phase 6 - Productization and Evaluation
+- [x] Add `theme-extractor doctor` command:
+  - validate runtime prerequisites (Python/package/env)
+  - validate optional dependency groups availability (`elasticsearch`, `opensearch`, `bert`, `llm`)
+  - validate local model directory and declared aliases for offline runs
+  - optional backend connectivity check (opt-in)
+- [x] Add CI workflow for pull requests:
+  - `ruff format --check` + `ruff check`
+  - `ty check src tests`
+  - `pytest -m unit`
+  - `pytest -m integration --no-cov`
+  - `pytest -m end2end`
+  - `pre-commit run --all-files`
+- [x] Add markdown report generation from unified JSON outputs:
+  - strategy summary
+  - top topics with representative keywords/documents
+  - overlap/comparison insights
+- [ ] Add quantitative evaluation utilities:
+  - topic coherence proxies
+  - inter-topic diversity
+  - run-to-run stability (seed sensitivity)
+- [ ] Improve ingestion robustness:
+  - OCR fallback strategy for scanned PDFs
+  - stronger header/footer detection on multipage docs
+  - richer `.msg` support (metadata and attachment text extraction policy)
+- [ ] Improve performance/scalability:
+  - streaming mode for large corpora (avoid retaining full text payloads)
+  - optional embedding cache with deterministic keys/versioning
+
 ## Branch and PR Policy
 - [ ] Execute each run/phase/feature in its own dedicated branch.
 - [ ] Close each run/phase/feature with a GitHub Pull Request.

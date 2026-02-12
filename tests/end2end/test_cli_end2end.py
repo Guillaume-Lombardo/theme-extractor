@@ -276,6 +276,23 @@ def test_extract_llm_end2end_provider_path(tmp_path, monkeypatch) -> None:
     assert "provider response" in "\n".join(payload["notes"])
 
 
+def test_doctor_end2end_generates_json_output_file(tmp_path) -> None:
+    output_path = tmp_path / "doctor-e2e.json"
+    exit_code = main(
+        [
+            "doctor",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == "1.0"
+    assert payload["command"] == "doctor"
+    assert "checks" in payload
+
+
 def test_extract_llm_end2end_empty_corpus(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _EmptyBackendStub())
 
@@ -380,3 +397,38 @@ def test_llm_internal_openai_parser_path(monkeypatch) -> None:
         api_key="fake-key",
     )
     assert output == [("fiscalite", 0.99)]
+
+
+def test_report_end2end_from_extract_output(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+
+    extract_path = tmp_path / "extract.json"
+    report_path = tmp_path / "report.md"
+
+    extract_exit_code = main(
+        [
+            "extract",
+            "--method",
+            "keybert",
+            "--focus",
+            "topics",
+            "--output",
+            str(extract_path),
+        ],
+    )
+    assert extract_exit_code == 0
+
+    report_exit_code = main(
+        [
+            "report",
+            "--input",
+            str(extract_path),
+            "--output",
+            str(report_path),
+        ],
+    )
+    assert report_exit_code == 0
+
+    report_content = report_path.read_text(encoding="utf-8")
+    assert "# Theme Extractor Report" in report_content
+    assert "## Topics" in report_content

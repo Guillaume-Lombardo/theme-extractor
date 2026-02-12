@@ -13,6 +13,8 @@ class CommandName(StrEnum):
     INGEST = "ingest"
     EXTRACT = "extract"
     BENCHMARK = "benchmark"
+    DOCTOR = "doctor"
+    REPORT = "report"
 
 
 class BackendName(StrEnum):

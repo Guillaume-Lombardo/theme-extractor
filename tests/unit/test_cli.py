@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import UTC, datetime
 
 import pytest
 
@@ -12,6 +13,10 @@ _PARSER_ERROR_EXIT_CODE = 2
 _EXPECTED_BENCHMARK_METHOD_COUNT = 2
 _PROXY_URL = "http://proxy.local:8080"
 _PROXY_ENV_KEYS = ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")
+
+
+class _BackendUnavailableError(RuntimeError):
+    """Represent one backend unavailability error in tests."""
 
 
 def _backend_stub(**_kwargs) -> object:
@@ -211,6 +216,76 @@ def test_benchmark_with_topic_focus_keeps_document_topics_none(capsys, monkeypat
 def test_main_returns_parser_error_exit_code_for_invalid_choice() -> None:
     exit_code = main(["extract", "--method", "invalid-choice"])
     assert exit_code == _PARSER_ERROR_EXIT_CODE
+
+
+def test_doctor_returns_diagnostics_payload(capsys) -> None:
+    exit_code = main(["doctor", "--output", "-"])
+    assert exit_code == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["command"] == "doctor"
+    assert payload["schema_version"] == "1.0"
+    assert "optional_dependencies" in payload["checks"]
+    assert "local_models" in payload["checks"]
+    assert payload["checks"]["backend_connectivity"]["checked"] is False
+
+
+def test_doctor_backend_check_reports_error(monkeypatch, capsys) -> None:
+    class _FailingBackend:
+        backend_name = "stub"
+
+        @staticmethod
+        def search_documents(*, index: str, body: dict[str, object]) -> dict[str, object]:
+            _ = index
+            _ = body
+            raise _BackendUnavailableError
+
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _FailingBackend())
+
+    exit_code = main(["doctor", "--check-backend", "--output", "-"])
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "error"
+    assert payload["checks"]["backend_connectivity"]["checked"] is True
+    assert payload["checks"]["backend_connectivity"]["ok"] is False
+    assert "_BackendUnavailableError" in payload["checks"]["backend_connectivity"]["error"]
+
+
+def test_report_reads_extract_json_and_emits_markdown(tmp_path, capsys) -> None:
+    input_path = tmp_path / "extract.json"
+    payload = {
+        "schema_version": "1.0",
+        "focus": "topics",
+        "topics": [
+            {
+                "topic_id": 0,
+                "label": "invoice",
+                "score": 1.0,
+                "keywords": [{"term": "invoice", "score": 1.0}],
+                "document_ids": ["doc-1"],
+                "representative_documents": [],
+                "summary": None,
+            },
+        ],
+        "document_topics": None,
+        "notes": ["note"],
+        "metadata": {
+            "run_id": "run-1",
+            "generated_at": datetime.now(tz=UTC).isoformat(),
+            "command": "extract",
+            "method": "keybert",
+            "offline_policy": "strict",
+            "backend": "elasticsearch",
+            "index": "theme_extractor",
+        },
+    }
+    input_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    exit_code = main(["report", "--input", str(input_path), "--output", "-"])
+    assert exit_code == 0
+    rendered = capsys.readouterr().out
+    assert "# Theme Extractor Report" in rendered
+    assert "invoice" in rendered
 
 
 def test_main_applies_proxy_environment_from_flag(tmp_path, monkeypatch) -> None:
