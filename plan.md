@@ -41,7 +41,7 @@ Create a production-grade toolkit to compare topic extraction strategies on hete
   - Elasticsearch/OpenSearch terms
   - Elasticsearch/OpenSearch significant_terms
   - Elasticsearch/OpenSearch significant_text
-- [ ] KeyBERT strategy
+- [x] KeyBERT strategy
 - [ ] BERTopic strategy matrix:
   - embedding on/off
   - dimensionality reduction: none/svd/nmf/umap

@@ -28,7 +28,11 @@ A feature is done only if:
 - implementation is complete and typed
 - tests exist at relevant levels (unit/integration/end2end as needed)
 - lint/format/type checks pass
+- dead code pass is completed and unused code is removed
 - docs/plan updates are applied when architecture or behavior changes
+- `README.md` is synchronized with user-facing behavior and commands
+- `.env.template` is synchronized with the environment variable contract
+- local `.env` is updated for validation before push/PR
 
 ## Non-Goals (for now)
 - No UI/web app in first iterations.

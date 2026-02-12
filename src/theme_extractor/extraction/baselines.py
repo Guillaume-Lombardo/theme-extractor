@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
+
+from pydantic import BaseModel, ConfigDict
 
 from theme_extractor.domain import (
     DocumentTopicLink,
@@ -26,8 +27,7 @@ _AGG_THEMES_KEY = "themes"
 _UNSUPPORTED_BASELINE_ERROR = "Unsupported baseline extraction method: {method!r}."
 
 
-@dataclass(frozen=True, slots=True)
-class BaselineExtractionConfig:
+class BaselineExtractionConfig(BaseModel):
     """Represent baseline extraction runtime options.
 
     Args:
@@ -42,6 +42,8 @@ class BaselineExtractionConfig:
 
     """
 
+    model_config = ConfigDict(frozen=True)
+
     query: str = "match_all"
     fields: tuple[str, ...] = ("content", "filename", "path")
     source_field: str = "content"
@@ -52,8 +54,7 @@ class BaselineExtractionConfig:
     sigtext_filter_duplicate: bool = True
 
 
-@dataclass(frozen=True, slots=True)
-class BaselineRunRequest:
+class BaselineRunRequest(BaseModel):
     """Represent one baseline method execution request.
 
     Args:
@@ -63,6 +64,8 @@ class BaselineRunRequest:
         config: Baseline extraction configuration.
 
     """
+
+    model_config = ConfigDict(frozen=True)
 
     method: ExtractMethod
     index: str

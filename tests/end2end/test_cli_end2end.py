@@ -74,7 +74,9 @@ def test_ingest_end2end_generates_json_output_file(tmp_path) -> None:
     assert payload["processed_documents"] == 1
 
 
-def test_extract_end2end_generates_json_output_file(tmp_path) -> None:
+def test_extract_end2end_generates_json_output_file(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+
     output_path = tmp_path / "extract-e2e.json"
 
     exit_code = main(
