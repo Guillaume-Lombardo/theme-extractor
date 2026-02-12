@@ -10,6 +10,60 @@ from theme_extractor.errors import UnsupportedMethodError
 _PARSER_ERROR_EXIT_CODE = 2
 
 
+def _backend_stub(**_kwargs) -> object:
+    class _Stub:
+        backend_name = "stub"
+
+        def search_documents(  # noqa: PLR6301
+            self,
+            *,
+            index: str,
+            body: dict[str, object],
+        ) -> dict[str, object]:
+            _ = index
+            _ = body
+            return {
+                "hits": {
+                    "hits": [
+                        {"_id": "doc-1", "_source": {"content": "invoice payment tax"}},
+                        {"_id": "doc-2", "_source": {"content": "tax declaration invoice"}},
+                    ],
+                },
+            }
+
+        def terms_aggregation(  # noqa: PLR6301
+            self,
+            *,
+            index: str,
+            body: dict[str, object],
+        ) -> dict[str, object]:
+            _ = index
+            _ = body
+            return {"aggregations": {"terms": {"buckets": []}}}
+
+        def significant_terms_aggregation(  # noqa: PLR6301
+            self,
+            *,
+            index: str,
+            body: dict[str, object],
+        ) -> dict[str, object]:
+            _ = index
+            _ = body
+            return {"aggregations": {"themes": {"buckets": []}}}
+
+        def significant_text_aggregation(  # noqa: PLR6301
+            self,
+            *,
+            index: str,
+            body: dict[str, object],
+        ) -> dict[str, object]:
+            _ = index
+            _ = body
+            return {"aggregations": {"themes": {"buckets": []}}}
+
+    return _Stub()
+
+
 def test_main_without_subcommand_returns_1(capsys) -> None:
     exit_code = main([])
 
@@ -18,7 +72,8 @@ def test_main_without_subcommand_returns_1(capsys) -> None:
     assert "usage:" in captured.out
 
 
-def test_extract_to_stdout_returns_normalized_topics_payload(capsys) -> None:
+def test_extract_to_stdout_returns_normalized_topics_payload(capsys, monkeypatch) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", _backend_stub)
     exit_code = main(["extract", "--method", "keybert", "--focus", "topics"])
 
     assert exit_code == 0
@@ -26,7 +81,7 @@ def test_extract_to_stdout_returns_normalized_topics_payload(capsys) -> None:
 
     assert payload["schema_version"] == "1.0"
     assert payload["focus"] == "topics"
-    assert payload["topics"] == []
+    assert payload["topics"]
     assert payload["document_topics"] is None
     assert payload["metadata"]["command"] == "extract"
     assert payload["metadata"]["method"] == "keybert"
@@ -104,7 +159,8 @@ def test_benchmark_ignores_empty_method_tokens(capsys) -> None:
     assert payload["methods"] == ["llm"]
 
 
-def test_benchmark_deduplicates_methods_and_outputs_json(capsys) -> None:
+def test_benchmark_deduplicates_methods_and_outputs_json(capsys, monkeypatch) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", _backend_stub)
     exit_code = main(
         [
             "benchmark",
@@ -122,7 +178,7 @@ def test_benchmark_deduplicates_methods_and_outputs_json(capsys) -> None:
     assert payload["methods"] == ["keybert", "llm"]
     assert set(payload["outputs"].keys()) == {"keybert", "llm"}
     assert payload["outputs"]["keybert"]["focus"] == "both"
-    assert payload["outputs"]["keybert"]["document_topics"] == []
+    assert payload["outputs"]["keybert"]["document_topics"]
 
 
 def test_benchmark_with_topic_focus_keeps_document_topics_none(capsys) -> None:

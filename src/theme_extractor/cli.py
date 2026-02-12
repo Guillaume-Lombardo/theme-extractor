@@ -29,7 +29,9 @@ from theme_extractor.domain import (
 from theme_extractor.extraction import (
     BaselineExtractionConfig,
     BaselineRunRequest,
+    KeyBertRunRequest,
     run_baseline_method,
+    run_keybert_method,
 )
 from theme_extractor.ingestion import IngestionConfig, run_ingestion
 from theme_extractor.search.factory import build_search_backend
@@ -47,6 +49,7 @@ _BASELINE_METHODS = {
     ExtractMethod.SIGNIFICANT_TERMS,
     ExtractMethod.SIGNIFICANT_TEXT,
 }
+_SEARCH_DRIVEN_METHODS = _BASELINE_METHODS | {ExtractMethod.KEYBERT}
 
 
 def _emit_payload(payload: dict[str, Any] | BaseModel, output: str) -> None:
@@ -192,6 +195,19 @@ def _is_baseline_method(method: ExtractMethod) -> bool:
 
     """
     return method in _BASELINE_METHODS
+
+
+def _is_search_driven_method(method: ExtractMethod) -> bool:
+    """Check whether method requires a search backend corpus.
+
+    Args:
+        method (ExtractMethod): Extraction method.
+
+    Returns:
+        bool: True if method requires search backend access.
+
+    """
+    return method in _SEARCH_DRIVEN_METHODS
 
 
 def _add_baseline_strategy_flags(subparser: argparse.ArgumentParser) -> None:
@@ -457,6 +473,17 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
             ),
             output=output,
         )
+    if method == ExtractMethod.KEYBERT:
+        search_backend = _build_baseline_backend(args=args, backend=backend)
+        return run_keybert_method(
+            backend=search_backend,
+            request=KeyBertRunRequest(
+                index=str(args.index),
+                focus=focus,
+                config=baseline_config,
+            ),
+            output=output,
+        )
 
     return output
 
@@ -478,7 +505,7 @@ def _handle_benchmark(args: argparse.Namespace) -> BenchmarkOutput:
     backend = BackendName(args.backend)
     baseline_config = _build_baseline_config(args)
     search_backend = None
-    if any(_is_baseline_method(method) for method in methods):
+    if any(_is_search_driven_method(method) for method in methods):
         search_backend = _build_baseline_backend(args=args, backend=backend)
 
     outputs: dict[str, UnifiedExtractionOutput] = {}
@@ -510,6 +537,16 @@ def _handle_benchmark(args: argparse.Namespace) -> BenchmarkOutput:
                 backend=search_backend,
                 request=BaselineRunRequest(
                     method=method,
+                    index=str(args.index),
+                    focus=focus,
+                    config=baseline_config,
+                ),
+                output=output,
+            )
+        elif method == ExtractMethod.KEYBERT and search_backend is not None:
+            output = run_keybert_method(
+                backend=search_backend,
+                request=KeyBertRunRequest(
                     index=str(args.index),
                     focus=focus,
                     config=baseline_config,

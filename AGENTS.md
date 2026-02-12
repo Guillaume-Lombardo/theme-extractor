@@ -42,6 +42,11 @@ Use MBAD before major design or implementation decisions:
 - Do not develop features directly on the main branch.
 - End every run, phase, and feature delivery with a GitHub Pull Request.
 - Use PR review and CI as mandatory validation before merge.
+- Before each push/PR, run one explicit dead-code pass and remove unused code/paths/imports no longer referenced.
+- Before every push/PR, ensure docs/config bootstrap are synchronized with code changes:
+  - update `README.md` when CLI behavior, setup, or workflow changes
+  - update `.env.template` when environment variables change
+  - update local `.env` accordingly for validation runs
 
 ## Pre-PR Checklist
 Run locally:
@@ -52,6 +57,11 @@ Run locally:
 - `uv run pytest -m integration`
 - `uv run pytest -m end2end`
 - `uv run pre-commit run --all-files`
+- Run a dead-code cleanup pass (remove unused code, stale helpers, and obsolete branches).
+- Confirm documentation/config sync:
+  - `README.md` updated if behavior changed
+  - `.env.template` updated if env contract changed
+  - local `.env` updated for manual/e2e validation
 
 ## Skills
 Project skills live in `skills/`:

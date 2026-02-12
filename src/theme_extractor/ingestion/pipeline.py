@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
 from pathlib import Path  # noqa: TC003
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from theme_extractor.domain import CleaningOptionFlag, cleaning_flag_to_string, default_cleaning_options
 from theme_extractor.ingestion.cleaning import (
@@ -67,9 +66,10 @@ class IngestionRunResult(BaseModel):
     skipped: list[SkippedDocument]
 
 
-@dataclass(frozen=True, slots=True)
-class _ProcessedDocumentMetadata:
+class _ProcessedDocumentMetadata(BaseModel):
     """Represent lightweight processed document metadata."""
+
+    model_config = ConfigDict(frozen=True)
 
     path: Path
     raw_length: int

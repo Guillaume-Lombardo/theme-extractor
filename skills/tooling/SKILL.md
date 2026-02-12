@@ -26,6 +26,7 @@ Standardize setup, checks, and local developer workflows.
 4. Run `uv run pytest -m unit`.
 5. Run `uv run pytest -m integration`.
 6. Run `uv run pytest -m end2end`.
+7. Run one dead-code cleanup pass and remove obsolete/unused code before pushing.
 
 ## Offline and Proxy Rules
 - Keep model and backend usage configurable for offline execution.
