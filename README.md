@@ -51,6 +51,7 @@ set -a; source .env; set +a
 ```
 
 Ingestion-related env vars available in `.env.template`:
+
 - `THEME_EXTRACTOR_DEFAULT_STOPWORDS_ENABLED`
 - `THEME_EXTRACTOR_AUTO_STOPWORDS_ENABLED`
 - `THEME_EXTRACTOR_AUTO_STOPWORDS_MIN_DOC_RATIO`
@@ -258,6 +259,7 @@ uv run theme-extractor extract \
 ```
 
 Notes:
+
 - If `sentence-transformers`, `umap-learn`, or `hdbscan` are missing, the CLI falls back to safe defaults and reports it in `notes`.
 - For embeddings, `--bertopic-embedding-model` accepts either:
   - a model id, or
@@ -299,12 +301,14 @@ uv run theme-extractor extract \
 ```
 
 LLM notes:
+
 - In `strict` mode, the strategy never performs network calls and falls back to TF-IDF.
 - In `preload_or_first_run`, if API credentials are missing or provider runtime fails, the strategy still falls back to TF-IDF and records the reason in `notes`.
 - If `keybert` is missing at runtime, the `keybert` method falls back to TF-IDF and records the fallback reason in `notes`.
 - KeyBERT embedding flags mirror BERTopic behavior: `--keybert-use-embeddings`, `--keybert-embedding-model`, and `--keybert-local-models-dir`.
 
 Ingestion stopwords notes:
+
 - Default FR/EN stopwords are enabled during `ingest`.
 - Disable them if you need raw token behavior: `--no-default-stopwords`.
 - Add project-specific stopwords with files:
@@ -407,6 +411,7 @@ uv run theme-extractor extract \
 ```
 
 Notes:
+
 - `--proxy-url` sets runtime `HTTP_PROXY/HTTPS_PROXY` for the command execution.
 - You can define a default proxy with `THEME_EXTRACTOR_PROXY_URL` in `.env`.
 - For one-off overrides, CLI flag value takes precedence.
