@@ -17,6 +17,14 @@ class TopicKeyword(BaseModel):
     score: float | None = None
 
 
+class TopicRepresentativeDocument(BaseModel):
+    """Represent a representative document attached to one topic."""
+
+    document_id: str
+    rank: int | None = None
+    snippet: str | None = None
+
+
 class TopicResult(BaseModel):
     """Represent one extracted topic in the unified output schema."""
 
@@ -25,6 +33,8 @@ class TopicResult(BaseModel):
     score: float | None = None
     keywords: list[TopicKeyword] = Field(default_factory=list)
     document_ids: list[str] = Field(default_factory=list)
+    representative_documents: list[TopicRepresentativeDocument] = Field(default_factory=list)
+    summary: str | None = None
 
 
 class DocumentTopicLink(BaseModel):
@@ -66,4 +76,5 @@ class BenchmarkOutput(BaseModel):
     command: CommandName = CommandName.BENCHMARK
     methods: list[ExtractMethod]
     outputs: dict[str, UnifiedExtractionOutput]
+    comparison: dict[str, object] = Field(default_factory=dict)
     generated_at: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))

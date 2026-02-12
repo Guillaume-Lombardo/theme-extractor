@@ -30,6 +30,12 @@ This repository currently provides:
 - phase 1 architecture contracts
 - one unified CLI with subcommands
 - normalized JSON output schemas (topic-first, with optional document-topic links)
+- topic characterization layer on extraction outputs:
+  - inferred labels
+  - representative keywords
+  - representative documents
+  - short summary per topic
+- benchmark comparison block with pairwise keyword overlap across strategies
 
 ## Local Baseline Testing With Docker
 

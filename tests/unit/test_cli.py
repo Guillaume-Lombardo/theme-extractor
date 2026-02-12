@@ -8,6 +8,7 @@ from theme_extractor.cli import main
 from theme_extractor.errors import UnsupportedMethodError
 
 _PARSER_ERROR_EXIT_CODE = 2
+_EXPECTED_BENCHMARK_METHOD_COUNT = 2
 
 
 def _backend_stub(**_kwargs) -> object:
@@ -189,6 +190,8 @@ def test_benchmark_deduplicates_methods_and_outputs_json(capsys, monkeypatch) ->
     assert payload["command"] == "benchmark"
     assert payload["methods"] == ["keybert", "llm"]
     assert set(payload["outputs"].keys()) == {"keybert", "llm"}
+    assert "comparison" in payload
+    assert payload["comparison"]["method_count"] == _EXPECTED_BENCHMARK_METHOD_COUNT
     assert payload["outputs"]["keybert"]["focus"] == "both"
     assert payload["outputs"]["keybert"]["document_topics"]
 
