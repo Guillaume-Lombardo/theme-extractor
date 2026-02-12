@@ -220,11 +220,12 @@ def _apply_umap_reduction(
     seed: int,
 ) -> tuple[Matrix, str | None]:
     try:
-        import umap  # noqa: PLC0415
+        umap_module = import_module("umap")
     except ImportError:
         return matrix, _UMAP_FALLBACK_NOTE
 
-    reducer = umap.UMAP(
+    umap_class = umap_module.UMAP
+    reducer = umap_class(
         n_neighbors=15,
         n_components=min(20, max(2, n_components)),
         min_dist=0.0,
@@ -255,7 +256,7 @@ def _cluster_labels(
 
     if clustering == BertopicClustering.HDBSCAN:
         try:
-            from hdbscan import HDBSCAN  # noqa: PLC0415
+            hdbscan_module = import_module("hdbscan")
         except ImportError:
             n_clusters = nr_topics if nr_topics is not None else _choose_k(n_docs)
             n_clusters = max(2, min(n_clusters, n_docs))
@@ -263,7 +264,8 @@ def _cluster_labels(
             labels = model.fit_predict(matrix)
             return labels, _HDBSCAN_FALLBACK_NOTE
 
-        model = HDBSCAN(min_cluster_size=2)
+        hdbscan_class = hdbscan_module.HDBSCAN
+        model = hdbscan_class(min_cluster_size=2)
         labels = model.fit_predict(matrix)
         non_noise = labels[labels >= 0]
         if non_noise.size == 0:

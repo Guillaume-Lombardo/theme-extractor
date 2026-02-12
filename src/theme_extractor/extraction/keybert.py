@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -180,19 +181,21 @@ def _extract_keywords_with_keybert(
         list[tuple[str, float]]: Ranked `(term, score)` list.
 
     """
-    from keybert import KeyBERT  # noqa: PLC0415
+    keybert_module = import_module("keybert")
+    keybert_class = keybert_module.KeyBERT
 
     model_name = resolve_embedding_model_name(
         embedding_model=keybert_config.embedding_model,
         local_models_dir=keybert_config.local_models_dir,
     )
     if keybert_config.use_embeddings:
-        from sentence_transformers import SentenceTransformer  # noqa: PLC0415
+        sentence_transformers_module = import_module("sentence_transformers")
+        sentence_transformer_class = sentence_transformers_module.SentenceTransformer
 
-        embedding_model = SentenceTransformer(model_name)
-        model = KeyBERT(model=embedding_model)
+        embedding_model = sentence_transformer_class(model_name)
+        model = keybert_class(model=embedding_model)
     else:
-        model = KeyBERT()
+        model = keybert_class()
     raw_keywords = model.extract_keywords(
         corpus_text,
         keyphrase_ngram_range=(1, 3),
