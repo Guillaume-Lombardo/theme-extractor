@@ -5,6 +5,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import platform
+import sys
+from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -57,6 +60,12 @@ _DEFAULT_INDEX = "theme_extractor"
 _DEFAULT_METHODS = "baseline_tfidf,keybert,bertopic,llm"
 _DEFAULT_BASELINE_FIELDS = ("content", "filename", "path")
 _PROXY_ENV_KEYS = ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")
+_DOCTOR_OPTIONAL_MODULES: dict[str, tuple[str, ...]] = {
+    "elasticsearch": ("elasticsearch",),
+    "opensearch": ("opensearchpy",),
+    "bert": ("keybert", "bertopic", "sentence_transformers"),
+    "llm": ("openai",),
+}
 _BASELINE_METHODS = {
     ExtractMethod.BASELINE_TFIDF,
     ExtractMethod.TERMS,
@@ -615,6 +624,38 @@ def _build_benchmark_parser(subparsers: argparse._SubParsersAction[argparse.Argu
     benchmark_parser.set_defaults(handler=_handle_benchmark)
 
 
+def _build_doctor_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    """Register the doctor subcommand parser.
+
+    Args:
+        subparsers (argparse._SubParsersAction[argparse.ArgumentParser]): Subparser registry.
+
+    """
+    doctor_parser = subparsers.add_parser(
+        CommandName.DOCTOR.value,
+        help="Validate local runtime, optional dependencies, and connectivity readiness.",
+    )
+    doctor_parser.add_argument(
+        "--check-backend",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+        help="Try one backend query to validate connectivity and credentials.",
+    )
+    doctor_parser.add_argument(
+        "--local-models-dir",
+        default=os.getenv("THEME_EXTRACTOR_LOCAL_MODELS_DIR", "data/models"),
+        help="Local models directory used for offline embedding alias checks.",
+    )
+    doctor_parser.add_argument(
+        "--expected-local-models",
+        default="bge-m3,all-MiniLM-L6-v2",
+        help="Comma-separated model aliases expected to exist under local models dir.",
+    )
+    _add_shared_runtime_flags(doctor_parser)
+    _add_output_flag(doctor_parser)
+    doctor_parser.set_defaults(handler=_handle_doctor)
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the root parser and all subcommands.
 
@@ -631,8 +672,122 @@ def build_parser() -> argparse.ArgumentParser:
     _build_ingest_parser(subparsers)
     _build_extract_parser(subparsers)
     _build_benchmark_parser(subparsers)
+    _build_doctor_parser(subparsers)
 
     return parser
+
+
+def _module_available(module_name: str) -> bool:
+    """Check whether one importable module is available in runtime.
+
+    Args:
+        module_name (str): Importable module name.
+
+    Returns:
+        bool: True if import succeeds, else False.
+
+    """
+    try:
+        import_module(module_name)
+    except Exception:
+        return False
+    return True
+
+
+def _handle_doctor(args: argparse.Namespace) -> dict[str, Any]:
+    """Build diagnostics payload for runtime readiness checks.
+
+    Args:
+        args (argparse.Namespace): Parsed command-line arguments.
+
+    Returns:
+        dict[str, Any]: Doctor diagnostics payload.
+
+    """
+    optional_dependencies: dict[str, dict[str, Any]] = {}
+    for group_name, modules in _DOCTOR_OPTIONAL_MODULES.items():
+        missing_modules = [module_name for module_name in modules if not _module_available(module_name)]
+        optional_dependencies[group_name] = {
+            "ok": not missing_modules,
+            "modules": list(modules),
+            "missing_modules": missing_modules,
+        }
+
+    expected_local_models = [
+        token.strip() for token in str(args.expected_local_models).split(",") if token.strip()
+    ]
+    local_models_dir = Path(str(args.local_models_dir)).expanduser().resolve()
+    local_models: dict[str, Any] = {
+        "path": str(local_models_dir),
+        "exists": local_models_dir.exists(),
+        "expected_aliases": expected_local_models,
+        "present_aliases": [],
+        "missing_aliases": [],
+    }
+    if local_models_dir.exists():
+        local_models["present_aliases"] = sorted(
+            child.name for child in local_models_dir.iterdir() if child.is_dir()
+        )
+    local_models["missing_aliases"] = sorted(
+        alias for alias in expected_local_models if alias not in set(local_models["present_aliases"])
+    )
+
+    backend_connectivity: dict[str, Any] = {
+        "checked": bool(args.check_backend),
+        "ok": None,
+        "error": None,
+    }
+    if args.check_backend:
+        try:
+            backend = _build_baseline_backend(
+                args=args,
+                backend=BackendName(str(args.backend)),
+            )
+            backend.search_documents(
+                index=str(args.index),
+                body={"size": 1, "query": {"match_all": {}}},
+            )
+            backend_connectivity["ok"] = True
+        except Exception as exc:
+            backend_connectivity["ok"] = False
+            backend_connectivity["error"] = f"{exc.__class__.__name__}: {exc}"
+
+    checks: dict[str, dict[str, Any]] = {
+        "runtime": {
+            "python_version": sys.version.split()[0],
+            "platform": platform.platform(),
+            "offline_policy": OfflinePolicy(str(args.offline_policy)).value,
+            "backend": BackendName(str(args.backend)).value,
+            "backend_url": str(args.backend_url),
+            "index": str(args.index),
+            "proxy_url": str(args.proxy_url) if args.proxy_url else None,
+        },
+        "optional_dependencies": optional_dependencies,
+        "local_models": local_models,
+        "backend_connectivity": backend_connectivity,
+    }
+    has_missing_optional = any(not check["ok"] for check in optional_dependencies.values())
+    has_backend_error = backend_connectivity["checked"] and backend_connectivity["ok"] is False
+    missing_local_models = bool(local_models["missing_aliases"])
+    status = "ok"
+    if has_missing_optional or missing_local_models:
+        status = "warning"
+    if has_backend_error:
+        status = "error"
+
+    warnings_count = int(has_missing_optional) + int(missing_local_models)
+    errors_count = int(has_backend_error)
+
+    return {
+        "schema_version": "1.0",
+        "command": CommandName.DOCTOR.value,
+        "status": status,
+        "checks": checks,
+        "summary": {
+            "warnings": warnings_count,
+            "errors": errors_count,
+        },
+    }
 
 
 def _handle_ingest(args: argparse.Namespace) -> dict[str, Any]:

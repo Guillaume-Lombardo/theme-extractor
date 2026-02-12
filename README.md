@@ -9,8 +9,36 @@ Use one unified CLI with subcommands:
 - `theme-extractor ingest`
 - `theme-extractor extract`
 - `theme-extractor benchmark`
+- `theme-extractor doctor`
 
 Current phase exposes stable command contracts and raw JSON outputs.
+
+## Runtime Diagnostics (`doctor`)
+
+Use `doctor` to quickly validate your local runtime before extraction runs.
+
+Basic check:
+
+```bash
+uv run theme-extractor doctor --output data/out/doctor.json
+```
+
+With backend connectivity check:
+
+```bash
+uv run theme-extractor doctor \
+  --backend elasticsearch \
+  --backend-url http://localhost:9200 \
+  --index theme_extractor \
+  --check-backend \
+  --output data/out/doctor_backend.json
+```
+
+What it checks:
+- runtime context (python/platform/offline policy/backend/proxy)
+- optional dependency groups (`elasticsearch`, `opensearch`, `bert`, `llm`)
+- expected local model aliases in `THEME_EXTRACTOR_LOCAL_MODELS_DIR`
+- optional backend connectivity probe (`--check-backend`)
 
 ## Project Agent Tooling
 

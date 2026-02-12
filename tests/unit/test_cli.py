@@ -14,6 +14,10 @@ _PROXY_URL = "http://proxy.local:8080"
 _PROXY_ENV_KEYS = ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")
 
 
+class _BackendUnavailableError(RuntimeError):
+    """Represent one backend unavailability error in tests."""
+
+
 def _backend_stub(**_kwargs) -> object:
     class _Stub:
         backend_name = "stub"
@@ -211,6 +215,39 @@ def test_benchmark_with_topic_focus_keeps_document_topics_none(capsys, monkeypat
 def test_main_returns_parser_error_exit_code_for_invalid_choice() -> None:
     exit_code = main(["extract", "--method", "invalid-choice"])
     assert exit_code == _PARSER_ERROR_EXIT_CODE
+
+
+def test_doctor_returns_diagnostics_payload(capsys) -> None:
+    exit_code = main(["doctor", "--output", "-"])
+    assert exit_code == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["command"] == "doctor"
+    assert payload["schema_version"] == "1.0"
+    assert "optional_dependencies" in payload["checks"]
+    assert "local_models" in payload["checks"]
+    assert payload["checks"]["backend_connectivity"]["checked"] is False
+
+
+def test_doctor_backend_check_reports_error(monkeypatch, capsys) -> None:
+    class _FailingBackend:
+        backend_name = "stub"
+
+        @staticmethod
+        def search_documents(*, index: str, body: dict[str, object]) -> dict[str, object]:
+            _ = index
+            _ = body
+            raise _BackendUnavailableError
+
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _FailingBackend())
+
+    exit_code = main(["doctor", "--check-backend", "--output", "-"])
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "error"
+    assert payload["checks"]["backend_connectivity"]["checked"] is True
+    assert payload["checks"]["backend_connectivity"]["ok"] is False
+    assert "_BackendUnavailableError" in payload["checks"]["backend_connectivity"]["error"]
 
 
 def test_main_applies_proxy_environment_from_flag(tmp_path, monkeypatch) -> None:

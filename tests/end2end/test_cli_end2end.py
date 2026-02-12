@@ -276,6 +276,23 @@ def test_extract_llm_end2end_provider_path(tmp_path, monkeypatch) -> None:
     assert "provider response" in "\n".join(payload["notes"])
 
 
+def test_doctor_end2end_generates_json_output_file(tmp_path) -> None:
+    output_path = tmp_path / "doctor-e2e.json"
+    exit_code = main(
+        [
+            "doctor",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == "1.0"
+    assert payload["command"] == "doctor"
+    assert "checks" in payload
+
+
 def test_extract_llm_end2end_empty_corpus(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _EmptyBackendStub())
 
