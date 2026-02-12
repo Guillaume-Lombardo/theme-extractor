@@ -234,3 +234,4 @@ pyrightconfig.json
 
 data/out/*
 data/raw/*
+data/models/*

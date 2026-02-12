@@ -29,6 +29,12 @@ class OfflinePolicy(StrEnum):
     PRELOAD_OR_FIRST_RUN = "preload_or_first_run"
 
 
+class LlmProvider(StrEnum):
+    """Represent supported LLM providers."""
+
+    OPENAI = "openai"
+
+
 class OutputFocus(StrEnum):
     """Represent output focus modes for extraction results."""
 

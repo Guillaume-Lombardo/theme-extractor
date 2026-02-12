@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from theme_extractor.cli import main
+from theme_extractor.extraction import llm as llm_mod
 
 
 @dataclass
@@ -217,3 +218,165 @@ def test_extract_bertopic_end2end_fallback_notes(tmp_path, monkeypatch) -> None:
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     notes = "\n".join(payload["notes"])
     assert "fell back" in notes or "fallback" in notes
+
+
+def test_extract_llm_end2end_strict_offline(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+
+    output_path = tmp_path / "extract-llm-strict-e2e.json"
+    exit_code = main(
+        [
+            "extract",
+            "--method",
+            "llm",
+            "--focus",
+            "both",
+            "--offline-policy",
+            "strict",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["metadata"]["method"] == "llm"
+    assert payload["topics"]
+    assert payload["document_topics"]
+    assert "strict offline mode" in "\n".join(payload["notes"])
+
+
+def test_extract_llm_end2end_provider_path(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
+    monkeypatch.setattr(
+        "theme_extractor.extraction.llm._extract_keywords_with_openai",
+        lambda **_kwargs: [("alpha", 0.9), ("beta", 0.8)],
+    )
+
+    output_path = tmp_path / "extract-llm-provider-e2e.json"
+    exit_code = main(
+        [
+            "extract",
+            "--method",
+            "llm",
+            "--focus",
+            "topics",
+            "--offline-policy",
+            "preload_or_first_run",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["topics"]
+    assert payload["document_topics"] is None
+    assert "provider response" in "\n".join(payload["notes"])
+
+
+def test_extract_llm_end2end_empty_corpus(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _EmptyBackendStub())
+
+    output_path = tmp_path / "extract-llm-empty-e2e.json"
+    exit_code = main(
+        [
+            "extract",
+            "--method",
+            "llm",
+            "--focus",
+            "topics",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["topics"] == []
+    assert payload["document_topics"] is None
+    assert "empty corpus" in "\n".join(payload["notes"])
+
+
+def test_extract_llm_end2end_empty_corpus_with_document_focus(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _EmptyBackendStub())
+
+    output_path = tmp_path / "extract-llm-empty-doc-focus-e2e.json"
+    exit_code = main(
+        [
+            "extract",
+            "--method",
+            "llm",
+            "--focus",
+            "both",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["topics"] == []
+    assert payload["document_topics"] == []
+
+
+def test_extract_llm_end2end_preload_without_credentials_fallback(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    output_path = tmp_path / "extract-llm-no-cred-e2e.json"
+    exit_code = main(
+        [
+            "extract",
+            "--method",
+            "llm",
+            "--focus",
+            "topics",
+            "--offline-policy",
+            "preload_or_first_run",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["topics"]
+    assert "credentials were not provided" in "\n".join(payload["notes"])
+
+
+def test_llm_internal_openai_parser_path(monkeypatch) -> None:
+    class _Message:
+        content = '{"keywords":[{"term":"fiscalite","score":0.99}]}'
+
+    class _Choice:
+        message = _Message()
+
+    class _Completions:
+        @staticmethod
+        def create(**_kwargs) -> object:
+            class _Response:
+                def __init__(self) -> None:
+                    self.choices = [_Choice()]
+
+            return _Response()
+
+    class _Chat:
+        completions = _Completions()
+
+    class _Client:
+        def __init__(self, **_kwargs) -> None:
+            self.chat = _Chat()
+
+    class _OpenAiModule:
+        OpenAI = _Client
+
+    monkeypatch.setattr("theme_extractor.extraction.llm.import_module", lambda _name: _OpenAiModule())
+    output = llm_mod._extract_keywords_with_openai(
+        corpus_text="fiscalite impot taxe revenu",
+        config=llm_mod.LlmExtractionConfig(),
+        top_n=3,
+        api_key="fake-key",
+    )
+    assert output == [("fiscalite", 0.99)]

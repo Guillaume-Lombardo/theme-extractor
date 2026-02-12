@@ -51,6 +51,9 @@ elasticsearch = [
 opensearch = [
   "opensearch-py>=3.1.0",
 ]
+llm = [
+  "openai>=1.68.2",
+]
 
 [build-system]
 requires = ["hatchling", "build"]

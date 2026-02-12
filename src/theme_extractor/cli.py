@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -18,6 +19,7 @@ from theme_extractor.domain import (
     DocumentTopicLink,
     ExtractionRunMetadata,
     ExtractMethod,
+    LlmProvider,
     OfflinePolicy,
     OutputFocus,
     UnifiedExtractionOutput,
@@ -34,9 +36,12 @@ from theme_extractor.extraction import (
     BertopicExtractionConfig,
     BertopicRunRequest,
     KeyBertRunRequest,
+    LlmExtractionConfig,
+    LlmRunRequest,
     run_baseline_method,
     run_bertopic_method,
     run_keybert_method,
+    run_llm_method,
 )
 from theme_extractor.ingestion import IngestionConfig, run_ingestion
 from theme_extractor.search.factory import build_search_backend
@@ -54,7 +59,7 @@ _BASELINE_METHODS = {
     ExtractMethod.SIGNIFICANT_TERMS,
     ExtractMethod.SIGNIFICANT_TEXT,
 }
-_SEARCH_DRIVEN_METHODS = _BASELINE_METHODS | {ExtractMethod.KEYBERT}
+_SEARCH_DRIVEN_METHODS = _BASELINE_METHODS | {ExtractMethod.KEYBERT, ExtractMethod.LLM}
 
 
 def _emit_payload(payload: dict[str, Any] | BaseModel, output: str) -> None:
@@ -178,6 +183,10 @@ def _build_bertopic_config(args: argparse.Namespace) -> BertopicExtractionConfig
     """
     nr_topics_raw = int(args.bertopic_nr_topics)
     nr_topics = nr_topics_raw if nr_topics_raw > 0 else None
+    local_models_dir_raw = str(args.bertopic_local_models_dir).strip()
+    local_models_dir = None
+    if local_models_dir_raw and local_models_dir_raw.lower() not in {"none", "null"}:
+        local_models_dir = Path(local_models_dir_raw).expanduser()
     return BertopicExtractionConfig(
         use_embeddings=bool(args.bertopic_use_embeddings),
         embedding_model=str(args.bertopic_embedding_model),
@@ -186,6 +195,28 @@ def _build_bertopic_config(args: argparse.Namespace) -> BertopicExtractionConfig
         nr_topics=nr_topics,
         min_topic_size=max(1, int(args.bertopic_min_topic_size)),
         seed=int(args.bertopic_seed),
+        local_models_dir=local_models_dir,
+    )
+
+
+def _build_llm_config(args: argparse.Namespace) -> LlmExtractionConfig:
+    """Build LLM extraction config from CLI args.
+
+    Args:
+        args (argparse.Namespace): Parsed CLI args.
+
+    Returns:
+        LlmExtractionConfig: LLM runtime config.
+
+    """
+    return LlmExtractionConfig(
+        provider=LlmProvider(str(args.llm_provider)),
+        model=str(args.llm_model),
+        api_key_env_var=str(args.llm_api_key_env_var),
+        api_base_url=str(args.llm_api_base_url) if args.llm_api_base_url else None,
+        temperature=float(args.llm_temperature),
+        timeout_s=float(args.llm_timeout_s),
+        max_input_chars=max(1, int(args.llm_max_input_chars)),
     )
 
 
@@ -301,6 +332,14 @@ def _add_baseline_strategy_flags(subparser: argparse.ArgumentParser) -> None:
         help="Embedding model name used when --bertopic-use-embeddings is enabled.",
     )
     subparser.add_argument(
+        "--bertopic-local-models-dir",
+        default=os.getenv("THEME_EXTRACTOR_LOCAL_MODELS_DIR", "data/models"),
+        help=(
+            "Directory used to resolve local embedding aliases (for example 'bge-m3' -> "
+            "'<dir>/bge-m3'). Use 'none' to disable alias resolution."
+        ),
+    )
+    subparser.add_argument(
         "--bertopic-dim-reduction",
         default=BertopicDimReduction.SVD.value,
         choices=[item.value for item in BertopicDimReduction],
@@ -329,6 +368,45 @@ def _add_baseline_strategy_flags(subparser: argparse.ArgumentParser) -> None:
         default=42,
         type=int,
         help="Random seed for BERTopic strategy.",
+    )
+    subparser.add_argument(
+        "--llm-provider",
+        default=LlmProvider.OPENAI.value,
+        choices=[provider.value for provider in LlmProvider],
+        help="LLM provider to use when network mode is allowed.",
+    )
+    subparser.add_argument(
+        "--llm-model",
+        default="gpt-4o-mini",
+        help="LLM model identifier.",
+    )
+    subparser.add_argument(
+        "--llm-api-key-env-var",
+        default="OPENAI_API_KEY",
+        help="Environment variable holding the provider API key.",
+    )
+    subparser.add_argument(
+        "--llm-api-base-url",
+        default=None,
+        help="Optional custom API base URL for compatible providers.",
+    )
+    subparser.add_argument(
+        "--llm-temperature",
+        default=0.0,
+        type=float,
+        help="LLM generation temperature.",
+    )
+    subparser.add_argument(
+        "--llm-timeout-s",
+        default=30.0,
+        type=float,
+        help="LLM request timeout in seconds.",
+    )
+    subparser.add_argument(
+        "--llm-max-input-chars",
+        default=20_000,
+        type=int,
+        help="Maximum corpus characters sent to the LLM prompt.",
     )
 
 
@@ -509,6 +587,7 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
     backend = BackendName(args.backend)
     baseline_config = _build_baseline_config(args)
     bertopic_config = _build_bertopic_config(args)
+    llm_config = _build_llm_config(args)
 
     document_topics: list[DocumentTopicLink] | None = None
     if focus in {OutputFocus.DOCUMENTS, OutputFocus.BOTH}:
@@ -566,6 +645,19 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
             ),
             output=output,
         )
+    if method == ExtractMethod.LLM:
+        search_backend = _build_baseline_backend(args=args, backend=backend)
+        return run_llm_method(
+            backend=search_backend,
+            request=LlmRunRequest(
+                index=str(args.index),
+                focus=focus,
+                offline_policy=offline_policy,
+                baseline_config=baseline_config,
+                llm_config=llm_config,
+            ),
+            output=output,
+        )
 
     return output
 
@@ -587,6 +679,7 @@ def _handle_benchmark(args: argparse.Namespace) -> BenchmarkOutput:
     backend = BackendName(args.backend)
     baseline_config = _build_baseline_config(args)
     bertopic_config = _build_bertopic_config(args)
+    llm_config = _build_llm_config(args)
     search_backend = None
     if any(_is_search_driven_method(method) for method in methods):
         search_backend = _build_baseline_backend(args=args, backend=backend)
@@ -644,6 +737,18 @@ def _handle_benchmark(args: argparse.Namespace) -> BenchmarkOutput:
                     focus=focus,
                     baseline_config=baseline_config,
                     bertopic_config=bertopic_config,
+                ),
+                output=output,
+            )
+        elif method == ExtractMethod.LLM and search_backend is not None:
+            output = run_llm_method(
+                backend=search_backend,
+                request=LlmRunRequest(
+                    index=str(args.index),
+                    focus=focus,
+                    offline_policy=offline_policy,
+                    baseline_config=baseline_config,
+                    llm_config=llm_config,
                 ),
                 output=output,
             )

@@ -162,7 +162,8 @@ def test_benchmark_rejects_empty_methods_list() -> None:
         main(["benchmark", "--methods", ",,,"])
 
 
-def test_benchmark_ignores_empty_method_tokens(capsys) -> None:
+def test_benchmark_ignores_empty_method_tokens(capsys, monkeypatch) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", _backend_stub)
     exit_code = main(["benchmark", "--methods", ",,llm,,", "--focus", "topics"])
 
     assert exit_code == 0
@@ -192,7 +193,8 @@ def test_benchmark_deduplicates_methods_and_outputs_json(capsys, monkeypatch) ->
     assert payload["outputs"]["keybert"]["document_topics"]
 
 
-def test_benchmark_with_topic_focus_keeps_document_topics_none(capsys) -> None:
+def test_benchmark_with_topic_focus_keeps_document_topics_none(capsys, monkeypatch) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", _backend_stub)
     exit_code = main(["benchmark", "--methods", "llm", "--focus", "topics"])
 
     assert exit_code == 0

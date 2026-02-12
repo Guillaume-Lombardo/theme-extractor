@@ -70,6 +70,9 @@ uv sync --group elasticsearch
 
 # Optional BERTopic/embedding stack
 # uv sync --group bert
+
+# Optional LLM provider client
+# uv sync --group llm
 ```
 
 Elasticsearch only:
@@ -170,9 +173,69 @@ uv run theme-extractor extract \
   --output data/out/extract_bertopic.json
 ```
 
+Alternative with NMF reduction:
+
+```bash
+uv run theme-extractor extract \
+  --method bertopic \
+  --backend elasticsearch \
+  --backend-url http://localhost:9200 \
+  --index theme_extractor \
+  --focus both \
+  --query "match_all" \
+  --bertopic-use-embeddings \
+  --bertopic-embedding-model bge-m3 \
+  --bertopic-dim-reduction nmf \
+  --bertopic-clustering kmeans \
+  --bertopic-nr-topics 8 \
+  --bertopic-min-topic-size 5 \
+  --output data/out/extract_bertopic-nmf-kmeans.json
+```
+
 Notes:
 - If `sentence-transformers`, `umap-learn`, or `hdbscan` are missing, the CLI falls back to safe defaults and reports it in `notes`.
+- For embeddings, `--bertopic-embedding-model` accepts either:
+  - a model id, or
+  - a local path.
+- `--bertopic-dim-reduction` supports `none`, `svd`, `nmf`, and `umap`.
+- Convenience behavior: if you pass `--bertopic-embedding-model bge-m3` and `data/models/bge-m3` exists, the local path is used automatically.
+- You can override the local alias directory with `--bertopic-local-models-dir` or `THEME_EXTRACTOR_LOCAL_MODELS_DIR`.
 - For strict offline runs, preload all optional models/dependencies before execution.
+
+LLM strategy (strict offline fallback by default):
+
+```bash
+uv run theme-extractor extract \
+  --method llm \
+  --backend elasticsearch \
+  --backend-url http://localhost:9200 \
+  --index theme_extractor \
+  --focus both \
+  --query "match_all" \
+  --offline-policy strict \
+  --output data/out/extract_llm.json
+```
+
+LLM strategy with provider call enabled (`preload_or_first_run`):
+
+```bash
+export OPENAI_API_KEY="<OPENAI_API_KEY>"
+uv run theme-extractor extract \
+  --method llm \
+  --backend elasticsearch \
+  --backend-url http://localhost:9200 \
+  --index theme_extractor \
+  --focus both \
+  --query "match_all" \
+  --offline-policy preload_or_first_run \
+  --llm-provider openai \
+  --llm-model "${THEME_EXTRACTOR_LLM_MODEL:-gpt-4o-mini}" \
+  --output data/out/extract_llm_online.json
+```
+
+LLM notes:
+- In `strict` mode, the strategy never performs network calls and falls back to TF-IDF.
+- In `preload_or_first_run`, if API credentials are missing or provider runtime fails, the strategy still falls back to TF-IDF and records the reason in `notes`.
 
 Important note for `significant_terms` and `significant_text`:
 
