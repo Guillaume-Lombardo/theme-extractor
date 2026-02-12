@@ -56,6 +56,7 @@ _DEFAULT_BACKEND_URL = "http://localhost:9200"
 _DEFAULT_INDEX = "theme_extractor"
 _DEFAULT_METHODS = "baseline_tfidf,keybert,bertopic,llm"
 _DEFAULT_BASELINE_FIELDS = ("content", "filename", "path")
+_PROXY_ENV_KEYS = ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")
 _BASELINE_METHODS = {
     ExtractMethod.BASELINE_TFIDF,
     ExtractMethod.TERMS,
@@ -126,7 +127,7 @@ def _add_shared_runtime_flags(subparser: argparse.ArgumentParser) -> None:
     )
     subparser.add_argument(
         "--proxy-url",
-        default=None,
+        default=os.getenv("THEME_EXTRACTOR_PROXY_URL"),
         help="Optional HTTP/HTTPS proxy URL for network-enabled workflows.",
     )
     subparser.add_argument(
@@ -288,6 +289,20 @@ def _build_baseline_backend(
         timeout_s=30.0,
         verify_certs=True,
     )
+
+
+def _apply_proxy_environment(proxy_url: str | None) -> None:
+    """Apply runtime proxy URL to common HTTP proxy environment variables.
+
+    Args:
+        proxy_url (str | None): Proxy URL provided by CLI/user.
+
+    """
+    if not proxy_url:
+        return
+
+    for env_key in _PROXY_ENV_KEYS:
+        os.environ[env_key] = proxy_url
 
 
 def _is_baseline_method(method: ExtractMethod) -> bool:
@@ -883,6 +898,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return 1
 
+    _apply_proxy_environment(getattr(args, "proxy_url", None))
     payload = handler(args)
     _emit_payload(payload=payload, output=args.output)
     return 0

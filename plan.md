@@ -59,10 +59,10 @@ Create a production-grade toolkit to compare topic extraction strategies on hete
 - [x] Add comparison report across strategies
 
 ### Phase 5 - Hardening
-- [ ] Expand integration/end2end scenarios
-- [ ] Validate offline and proxy execution modes
-- [ ] Finalize CLI docs and usage recipes
-- [ ] Pre-PR gate: all test suites green
+- [x] Expand integration/end2end scenarios
+- [x] Validate offline and proxy execution modes
+- [x] Finalize CLI docs and usage recipes
+- [x] Pre-PR gate: all test suites green
 
 ## Branch and PR Policy
 - [ ] Execute each run/phase/feature in its own dedicated branch.

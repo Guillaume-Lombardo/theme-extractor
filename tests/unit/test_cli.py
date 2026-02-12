@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 import pytest
 
@@ -9,6 +10,8 @@ from theme_extractor.errors import UnsupportedMethodError
 
 _PARSER_ERROR_EXIT_CODE = 2
 _EXPECTED_BENCHMARK_METHOD_COUNT = 2
+_PROXY_URL = "http://proxy.local:8080"
+_PROXY_ENV_KEYS = ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")
 
 
 def _backend_stub(**_kwargs) -> object:
@@ -208,3 +211,60 @@ def test_benchmark_with_topic_focus_keeps_document_topics_none(capsys, monkeypat
 def test_main_returns_parser_error_exit_code_for_invalid_choice() -> None:
     exit_code = main(["extract", "--method", "invalid-choice"])
     assert exit_code == _PARSER_ERROR_EXIT_CODE
+
+
+def test_main_applies_proxy_environment_from_flag(tmp_path, monkeypatch) -> None:
+    sample = tmp_path / "sample.txt"
+    sample.write_text("Bonjour le monde", encoding="utf-8")
+
+    monkeypatch.delenv("HTTP_PROXY", raising=False)
+    monkeypatch.delenv("HTTPS_PROXY", raising=False)
+    monkeypatch.delenv("http_proxy", raising=False)
+    monkeypatch.delenv("https_proxy", raising=False)
+    original_proxy_values = {key: os.environ.get(key) for key in _PROXY_ENV_KEYS}
+
+    try:
+        exit_code = main(
+            [
+                "ingest",
+                "--input",
+                str(sample),
+                "--proxy-url",
+                _PROXY_URL,
+                "--output",
+                "-",
+            ],
+        )
+
+        assert exit_code == 0
+        assert os.environ["HTTP_PROXY"] == _PROXY_URL
+        assert os.environ["HTTPS_PROXY"] == _PROXY_URL
+        assert os.environ["http_proxy"] == _PROXY_URL
+        assert os.environ["https_proxy"] == _PROXY_URL
+    finally:
+        for key, value in original_proxy_values.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+def test_extract_uses_proxy_url_default_from_environment(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", _backend_stub)
+    monkeypatch.setenv("THEME_EXTRACTOR_PROXY_URL", _PROXY_URL)
+    original_proxy_values = {key: os.environ.get(key) for key in _PROXY_ENV_KEYS}
+
+    try:
+        exit_code = main(["extract", "--method", "terms", "--focus", "topics"])
+        assert exit_code == 0
+        _ = json.loads(capsys.readouterr().out)
+        assert os.environ["HTTP_PROXY"] == _PROXY_URL
+        assert os.environ["HTTPS_PROXY"] == _PROXY_URL
+        assert os.environ["http_proxy"] == _PROXY_URL
+        assert os.environ["https_proxy"] == _PROXY_URL
+    finally:
+        for key, value in original_proxy_values.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
