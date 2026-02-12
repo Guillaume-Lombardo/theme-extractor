@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict
@@ -29,6 +30,7 @@ class KeyBertRunRequest(BaseModel):
         index (str): Target backend index.
         focus (OutputFocus): Output focus mode.
         config (BaselineExtractionConfig): Runtime extraction config.
+        keybert_config (KeyBertExtractionConfig): KeyBERT runtime options.
 
     """
 
@@ -37,6 +39,27 @@ class KeyBertRunRequest(BaseModel):
     index: str
     focus: OutputFocus
     config: BaselineExtractionConfig
+    keybert_config: KeyBertExtractionConfig
+
+
+_DEFAULT_LOCAL_MODELS_DIR = Path("data/models")
+
+
+class KeyBertExtractionConfig(BaseModel):
+    """Represent KeyBERT extraction runtime options.
+
+    Args:
+        use_embeddings (bool): Whether to force a custom embedding model.
+        embedding_model (str): Embedding model id or local path.
+        local_models_dir (Path | None): Local directory used to resolve model aliases.
+
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    use_embeddings: bool = False
+    embedding_model: str = "bge-m3"
+    local_models_dir: Path | None = _DEFAULT_LOCAL_MODELS_DIR
 
 
 _KEYWORD_TERM_AND_SCORE_LENGTH = 2
@@ -143,12 +166,14 @@ def _extract_keywords_with_keybert(
     *,
     corpus_text: str,
     top_n: int,
+    keybert_config: KeyBertExtractionConfig,
 ) -> list[tuple[str, float]]:
     """Extract keywords with KeyBERT if dependency is available.
 
     Args:
         corpus_text (str): Input corpus text.
         top_n (int): Number of keywords to return.
+        keybert_config (KeyBertExtractionConfig): KeyBERT runtime options.
 
     Returns:
         list[tuple[str, float]]: Ranked `(term, score)` list.
@@ -156,7 +181,17 @@ def _extract_keywords_with_keybert(
     """
     from keybert import KeyBERT  # noqa: PLC0415
 
-    model = KeyBERT()
+    model_name = _resolve_embedding_model_name(
+        embedding_model=keybert_config.embedding_model,
+        local_models_dir=keybert_config.local_models_dir,
+    )
+    if keybert_config.use_embeddings:
+        from sentence_transformers import SentenceTransformer  # noqa: PLC0415
+
+        embedding_model = SentenceTransformer(model_name)
+        model = KeyBERT(model=embedding_model)
+    else:
+        model = KeyBERT()
     raw_keywords = model.extract_keywords(
         corpus_text,
         keyphrase_ngram_range=(1, 3),
@@ -171,6 +206,37 @@ def _extract_keywords_with_keybert(
             if isinstance(term, str) and isinstance(score_raw, int | float):
                 normalized_keywords.append((term, float(score_raw)))
     return normalized_keywords
+
+
+def _resolve_embedding_model_name(
+    *,
+    embedding_model: str,
+    local_models_dir: Path | None,
+) -> str:
+    """Resolve model id to a direct local path when available.
+
+    Args:
+        embedding_model (str): Raw model value from CLI.
+        local_models_dir (Path | None): Optional local aliases directory.
+
+    Returns:
+        str: Resolved model value.
+
+    """
+    normalized = embedding_model.strip()
+    if not normalized:
+        return normalized
+
+    direct_path = Path(normalized).expanduser()
+    if direct_path.exists():
+        return str(direct_path.resolve())
+
+    if local_models_dir is not None:
+        local_candidate = (local_models_dir / normalized).expanduser()
+        if local_candidate.exists():
+            return str(local_candidate.resolve())
+
+    return normalized
 
 
 def run_keybert_method(
@@ -216,6 +282,7 @@ def run_keybert_method(
         ranked_keywords = _extract_keywords_with_keybert(
             corpus_text=corpus_text,
             top_n=request.config.top_n,
+            keybert_config=request.keybert_config,
         )
         output.notes.append("KeyBERT strategy executed with keybert dependency.")
     except ImportError:

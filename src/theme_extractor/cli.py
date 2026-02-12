@@ -35,6 +35,7 @@ from theme_extractor.extraction import (
     BaselineRunRequest,
     BertopicExtractionConfig,
     BertopicRunRequest,
+    KeyBertExtractionConfig,
     KeyBertRunRequest,
     LlmExtractionConfig,
     LlmRunRequest,
@@ -195,6 +196,27 @@ def _build_bertopic_config(args: argparse.Namespace) -> BertopicExtractionConfig
         nr_topics=nr_topics,
         min_topic_size=max(1, int(args.bertopic_min_topic_size)),
         seed=int(args.bertopic_seed),
+        local_models_dir=local_models_dir,
+    )
+
+
+def _build_keybert_config(args: argparse.Namespace) -> KeyBertExtractionConfig:
+    """Build KeyBERT extraction config from CLI args.
+
+    Args:
+        args (argparse.Namespace): Parsed CLI args.
+
+    Returns:
+        KeyBertExtractionConfig: KeyBERT runtime config.
+
+    """
+    local_models_dir_raw = str(args.keybert_local_models_dir).strip()
+    local_models_dir = None
+    if local_models_dir_raw and local_models_dir_raw.lower() not in {"none", "null"}:
+        local_models_dir = Path(local_models_dir_raw).expanduser()
+    return KeyBertExtractionConfig(
+        use_embeddings=bool(args.keybert_use_embeddings),
+        embedding_model=str(args.keybert_embedding_model),
         local_models_dir=local_models_dir,
     )
 
@@ -368,6 +390,25 @@ def _add_baseline_strategy_flags(subparser: argparse.ArgumentParser) -> None:
         default=42,
         type=int,
         help="Random seed for BERTopic strategy.",
+    )
+    subparser.add_argument(
+        "--keybert-use-embeddings",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+        help="Enable custom embeddings for KeyBERT strategy.",
+    )
+    subparser.add_argument(
+        "--keybert-embedding-model",
+        default="bge-m3",
+        help="Embedding model name used when --keybert-use-embeddings is enabled.",
+    )
+    subparser.add_argument(
+        "--keybert-local-models-dir",
+        default=os.getenv("THEME_EXTRACTOR_LOCAL_MODELS_DIR", "data/models"),
+        help=(
+            "Directory used to resolve local embedding aliases (for example 'bge-m3' -> "
+            "'<dir>/bge-m3'). Use 'none' to disable alias resolution."
+        ),
     )
     subparser.add_argument(
         "--llm-provider",
@@ -587,6 +628,7 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
     backend = BackendName(args.backend)
     baseline_config = _build_baseline_config(args)
     bertopic_config = _build_bertopic_config(args)
+    keybert_config = _build_keybert_config(args)
     llm_config = _build_llm_config(args)
 
     document_topics: list[DocumentTopicLink] | None = None
@@ -630,6 +672,7 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
                 index=str(args.index),
                 focus=focus,
                 config=baseline_config,
+                keybert_config=keybert_config,
             ),
             output=output,
         )
@@ -679,6 +722,7 @@ def _handle_benchmark(args: argparse.Namespace) -> BenchmarkOutput:
     backend = BackendName(args.backend)
     baseline_config = _build_baseline_config(args)
     bertopic_config = _build_bertopic_config(args)
+    keybert_config = _build_keybert_config(args)
     llm_config = _build_llm_config(args)
     search_backend = None
     if any(_is_search_driven_method(method) for method in methods):
@@ -726,6 +770,7 @@ def _handle_benchmark(args: argparse.Namespace) -> BenchmarkOutput:
                     index=str(args.index),
                     focus=focus,
                     config=baseline_config,
+                    keybert_config=keybert_config,
                 ),
                 output=output,
             )

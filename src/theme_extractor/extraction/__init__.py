@@ -10,7 +10,11 @@ from theme_extractor.extraction.bertopic import (
     BertopicRunRequest,
     run_bertopic_method,
 )
-from theme_extractor.extraction.keybert import KeyBertRunRequest, run_keybert_method
+from theme_extractor.extraction.keybert import (
+    KeyBertExtractionConfig,
+    KeyBertRunRequest,
+    run_keybert_method,
+)
 from theme_extractor.extraction.llm import LlmExtractionConfig, LlmRunRequest, run_llm_method
 
 __all__ = [
@@ -18,6 +22,7 @@ __all__ = [
     "BaselineRunRequest",
     "BertopicExtractionConfig",
     "BertopicRunRequest",
+    "KeyBertExtractionConfig",
     "KeyBertRunRequest",
     "LlmExtractionConfig",
     "LlmRunRequest",

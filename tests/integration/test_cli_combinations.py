@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 from dataclasses import dataclass
 from typing import Any
 
@@ -359,6 +361,63 @@ def test_extract_bertopic_local_models_dir_option(monkeypatch, capsys, tmp_path)
             "--bertopic-min-topic-size",
             "1",
             "--bertopic-nr-topics",
+            "2",
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["topics"]
+    assert captured["model_name"] == str((local_models_dir / "bge-m3").resolve())
+
+
+def test_extract_keybert_local_models_dir_option(monkeypatch, capsys, tmp_path) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    local_models_dir = tmp_path / "models"
+    (local_models_dir / "bge-m3").mkdir(parents=True)
+    captured: dict[str, str] = {}
+
+    class _SentenceTransformer:
+        def __init__(self, model_name: str) -> None:
+            captured["model_name"] = model_name
+
+    class _KeyBERT:
+        def __init__(self, model: object | None = None) -> None:
+            _ = model
+
+        @staticmethod
+        def extract_keywords(
+            _corpus_text: str,
+            *,
+            keyphrase_ngram_range: tuple[int, int],
+            stop_words: str,
+            top_n: int,
+        ) -> list[tuple[str, float]]:
+            _ = keyphrase_ngram_range
+            _ = stop_words
+            _ = top_n
+            return [("alpha", 0.9), ("beta", 0.8)]
+
+    keybert_module = types.ModuleType("keybert")
+    keybert_module.KeyBERT = _KeyBERT  # type: ignore[attr-defined]
+    sentence_transformers_module = types.ModuleType("sentence_transformers")
+    sentence_transformers_module.SentenceTransformer = _SentenceTransformer  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "keybert", keybert_module)
+    monkeypatch.setitem(sys.modules, "sentence_transformers", sentence_transformers_module)
+
+    exit_code = main(
+        [
+            "extract",
+            "--method",
+            "keybert",
+            "--focus",
+            "topics",
+            "--keybert-use-embeddings",
+            "--keybert-embedding-model",
+            "bge-m3",
+            "--keybert-local-models-dir",
+            str(local_models_dir),
+            "--topn",
             "2",
         ],
     )

@@ -164,6 +164,9 @@ uv run theme-extractor extract \
   --index theme_extractor \
   --focus both \
   --query "match_all" \
+  --keybert-use-embeddings \
+  --keybert-embedding-model bge-m3 \
+  --keybert-local-models-dir data/models \
   --fields content,filename,path \
   --source-field content \
   --topn 25 \
@@ -285,6 +288,7 @@ LLM notes:
 - In `strict` mode, the strategy never performs network calls and falls back to TF-IDF.
 - In `preload_or_first_run`, if API credentials are missing or provider runtime fails, the strategy still falls back to TF-IDF and records the reason in `notes`.
 - If `keybert` is missing at runtime, the `keybert` method falls back to TF-IDF and records the fallback reason in `notes`.
+- KeyBERT embedding flags mirror BERTopic behavior: `--keybert-use-embeddings`, `--keybert-embedding-model`, and `--keybert-local-models-dir`.
 
 Important note for `significant_terms` and `significant_text`:
 
