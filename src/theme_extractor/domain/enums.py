@@ -49,6 +49,22 @@ class ExtractMethod(StrEnum):
     LLM = "llm"
 
 
+class BertopicDimReduction(StrEnum):
+    """Represent BERTopic dimensionality reduction choices."""
+
+    NONE = "none"
+    SVD = "svd"
+    NMF = "nmf"
+    UMAP = "umap"
+
+
+class BertopicClustering(StrEnum):
+    """Represent BERTopic clustering choices."""
+
+    KMEANS = "kmeans"
+    HDBSCAN = "hdbscan"
+
+
 class ExtractMethodFlag(IntFlag):
     """Represent one or more extraction methods as bit flags."""
 

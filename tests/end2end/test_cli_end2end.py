@@ -38,6 +38,26 @@ class _BackendStub:
         _ = body
         return {"aggregations": {"themes": {"buckets": []}}}
 
+
+@dataclass
+class _EmptyBackendStub:
+    backend_name: str = "stub-empty"
+
+    def search_documents(self, *, index: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR6301
+        _ = index
+        _ = body
+        return {"hits": {"hits": []}}
+
+    def terms_aggregation(self, *, index: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR6301
+        _ = index
+        _ = body
+        return {"aggregations": {"terms": {"buckets": []}}}
+
+    def significant_terms_aggregation(self, *, index: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR6301
+        _ = index
+        _ = body
+        return {"aggregations": {"themes": {"buckets": []}}}
+
     def significant_text_aggregation(  # noqa: PLR6301
         self,
         *,
@@ -119,3 +139,81 @@ def test_benchmark_end2end_generates_json_output_file(tmp_path, monkeypatch) -> 
     assert payload["command"] == "benchmark"
     assert payload["methods"] == ["baseline_tfidf", "keybert", "llm"]
     assert payload["outputs"]["llm"]["focus"] == "both"
+
+
+def test_extract_bertopic_end2end_generates_json_output_file(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+
+    output_path = tmp_path / "extract-bertopic-e2e.json"
+    exit_code = main(
+        [
+            "extract",
+            "--method",
+            "bertopic",
+            "--focus",
+            "both",
+            "--bertopic-min-topic-size",
+            "1",
+            "--bertopic-nr-topics",
+            "2",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["metadata"]["method"] == "bertopic"
+    assert payload["topics"]
+    assert payload["document_topics"]
+
+
+def test_extract_bertopic_end2end_empty_corpus_branch(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _EmptyBackendStub())
+
+    output_path = tmp_path / "extract-bertopic-empty-e2e.json"
+    exit_code = main(
+        [
+            "extract",
+            "--method",
+            "bertopic",
+            "--focus",
+            "both",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["topics"] == []
+    assert payload["document_topics"] == []
+
+
+def test_extract_bertopic_end2end_fallback_notes(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+
+    output_path = tmp_path / "extract-bertopic-fallback-e2e.json"
+    exit_code = main(
+        [
+            "extract",
+            "--method",
+            "bertopic",
+            "--focus",
+            "topics",
+            "--bertopic-use-embeddings",
+            "--bertopic-dim-reduction",
+            "umap",
+            "--bertopic-clustering",
+            "hdbscan",
+            "--bertopic-min-topic-size",
+            "1",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    notes = "\n".join(payload["notes"])
+    assert "fell back" in notes or "fallback" in notes

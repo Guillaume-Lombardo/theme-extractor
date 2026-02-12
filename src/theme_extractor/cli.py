@@ -12,6 +12,8 @@ from pydantic import BaseModel
 from theme_extractor.domain import (
     BackendName,
     BenchmarkOutput,
+    BertopicClustering,
+    BertopicDimReduction,
     CommandName,
     DocumentTopicLink,
     ExtractionRunMetadata,
@@ -29,8 +31,11 @@ from theme_extractor.domain import (
 from theme_extractor.extraction import (
     BaselineExtractionConfig,
     BaselineRunRequest,
+    BertopicExtractionConfig,
+    BertopicRunRequest,
     KeyBertRunRequest,
     run_baseline_method,
+    run_bertopic_method,
     run_keybert_method,
 )
 from theme_extractor.ingestion import IngestionConfig, run_ingestion
@@ -161,6 +166,29 @@ def _build_baseline_config(args: argparse.Namespace) -> BaselineExtractionConfig
     )
 
 
+def _build_bertopic_config(args: argparse.Namespace) -> BertopicExtractionConfig:
+    """Build BERTopic extraction config from CLI args.
+
+    Args:
+        args (argparse.Namespace): Parsed CLI args.
+
+    Returns:
+        BertopicExtractionConfig: BERTopic runtime config.
+
+    """
+    nr_topics_raw = int(args.bertopic_nr_topics)
+    nr_topics = nr_topics_raw if nr_topics_raw > 0 else None
+    return BertopicExtractionConfig(
+        use_embeddings=bool(args.bertopic_use_embeddings),
+        embedding_model=str(args.bertopic_embedding_model),
+        reduce_dim=BertopicDimReduction(str(args.bertopic_dim_reduction)),
+        clustering=BertopicClustering(str(args.bertopic_clustering)),
+        nr_topics=nr_topics,
+        min_topic_size=max(1, int(args.bertopic_min_topic_size)),
+        seed=int(args.bertopic_seed),
+    )
+
+
 def _build_baseline_backend(
     *,
     args: argparse.Namespace,
@@ -207,7 +235,7 @@ def _is_search_driven_method(method: ExtractMethod) -> bool:
         bool: True if method requires search backend access.
 
     """
-    return method in _SEARCH_DRIVEN_METHODS
+    return method in (_SEARCH_DRIVEN_METHODS | {ExtractMethod.BERTOPIC})
 
 
 def _add_baseline_strategy_flags(subparser: argparse.ArgumentParser) -> None:
@@ -260,6 +288,47 @@ def _add_baseline_strategy_flags(subparser: argparse.ArgumentParser) -> None:
         default=True,
         action=argparse.BooleanOptionalAction,
         help="Enable duplicate-text filtering for significant_text aggregation.",
+    )
+    subparser.add_argument(
+        "--bertopic-use-embeddings",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+        help="Enable embeddings for BERTopic strategy.",
+    )
+    subparser.add_argument(
+        "--bertopic-embedding-model",
+        default="bge-m3",
+        help="Embedding model name used when --bertopic-use-embeddings is enabled.",
+    )
+    subparser.add_argument(
+        "--bertopic-dim-reduction",
+        default=BertopicDimReduction.SVD.value,
+        choices=[item.value for item in BertopicDimReduction],
+        help="Dimensionality reduction strategy for BERTopic.",
+    )
+    subparser.add_argument(
+        "--bertopic-clustering",
+        default=BertopicClustering.KMEANS.value,
+        choices=[item.value for item in BertopicClustering],
+        help="Clustering strategy for BERTopic.",
+    )
+    subparser.add_argument(
+        "--bertopic-nr-topics",
+        default=0,
+        type=int,
+        help="Fixed number of topics for KMeans (>0), 0 means auto.",
+    )
+    subparser.add_argument(
+        "--bertopic-min-topic-size",
+        default=10,
+        type=int,
+        help="Minimum size accepted for one topic.",
+    )
+    subparser.add_argument(
+        "--bertopic-seed",
+        default=42,
+        type=int,
+        help="Random seed for BERTopic strategy.",
     )
 
 
@@ -439,6 +508,7 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
     offline_policy = OfflinePolicy(args.offline_policy)
     backend = BackendName(args.backend)
     baseline_config = _build_baseline_config(args)
+    bertopic_config = _build_bertopic_config(args)
 
     document_topics: list[DocumentTopicLink] | None = None
     if focus in {OutputFocus.DOCUMENTS, OutputFocus.BOTH}:
@@ -484,6 +554,18 @@ def _handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
             ),
             output=output,
         )
+    if method == ExtractMethod.BERTOPIC:
+        search_backend = _build_baseline_backend(args=args, backend=backend)
+        return run_bertopic_method(
+            backend=search_backend,
+            request=BertopicRunRequest(
+                index=str(args.index),
+                focus=focus,
+                baseline_config=baseline_config,
+                bertopic_config=bertopic_config,
+            ),
+            output=output,
+        )
 
     return output
 
@@ -504,6 +586,7 @@ def _handle_benchmark(args: argparse.Namespace) -> BenchmarkOutput:
     offline_policy = OfflinePolicy(args.offline_policy)
     backend = BackendName(args.backend)
     baseline_config = _build_baseline_config(args)
+    bertopic_config = _build_bertopic_config(args)
     search_backend = None
     if any(_is_search_driven_method(method) for method in methods):
         search_backend = _build_baseline_backend(args=args, backend=backend)
@@ -550,6 +633,17 @@ def _handle_benchmark(args: argparse.Namespace) -> BenchmarkOutput:
                     index=str(args.index),
                     focus=focus,
                     config=baseline_config,
+                ),
+                output=output,
+            )
+        elif method == ExtractMethod.BERTOPIC and search_backend is not None:
+            output = run_bertopic_method(
+                backend=search_backend,
+                request=BertopicRunRequest(
+                    index=str(args.index),
+                    focus=focus,
+                    baseline_config=baseline_config,
+                    bertopic_config=bertopic_config,
                 ),
                 output=output,
             )

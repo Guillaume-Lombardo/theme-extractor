@@ -4,6 +4,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
+
 from theme_extractor.cli import main
 
 _EXPECTED_METHOD_COUNT = 7
@@ -127,3 +129,46 @@ def test_extract_supports_strict_offline_policy_and_elasticsearch_backend(
     assert payload["metadata"]["backend"] == "elasticsearch"
     assert payload["metadata"]["offline_policy"] == "strict"
     assert payload["metadata"]["index"] == "theme_idx"
+
+
+def test_extract_bertopic_supports_matrix_flags_and_notes(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.extraction.bertopic._make_embeddings_if_enabled",
+        lambda **_kwargs: (None, "embedding fallback"),
+    )
+    monkeypatch.setattr(
+        "theme_extractor.extraction.bertopic._apply_reduction",
+        lambda **kwargs: (kwargs["matrix"], "reduction fallback"),
+    )
+    monkeypatch.setattr(
+        "theme_extractor.extraction.bertopic._cluster_labels",
+        lambda **_kwargs: (np.array([0, 0]), "cluster fallback"),
+    )
+
+    exit_code = main(
+        [
+            "extract",
+            "--method",
+            "bertopic",
+            "--focus",
+            "both",
+            "--bertopic-use-embeddings",
+            "--bertopic-dim-reduction",
+            "umap",
+            "--bertopic-clustering",
+            "hdbscan",
+            "--bertopic-min-topic-size",
+            "1",
+            "--bertopic-nr-topics",
+            "2",
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["topics"]
+    assert payload["document_topics"]
+    assert "embedding fallback" in payload["notes"]
+    assert "reduction fallback" in payload["notes"]
+    assert "cluster fallback" in payload["notes"]

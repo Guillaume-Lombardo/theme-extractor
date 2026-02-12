@@ -10,6 +10,8 @@ from theme_extractor.domain.contracts import (
 )
 from theme_extractor.domain.enums import (
     BackendName,
+    BertopicClustering,
+    BertopicDimReduction,
     CleaningOptionFlag,
     CommandName,
     ExtractMethod,
@@ -28,6 +30,8 @@ from theme_extractor.domain.enums import (
 __all__ = [
     "BackendName",
     "BenchmarkOutput",
+    "BertopicClustering",
+    "BertopicDimReduction",
     "CleaningOptionFlag",
     "CommandName",
     "DocumentTopicLink",

@@ -67,6 +67,9 @@ uv sync --group elasticsearch
 
 # For OpenSearch backend (optional alternative)
 # uv sync --group opensearch
+
+# Optional BERTopic/embedding stack
+# uv sync --group bert
 ```
 
 Elasticsearch only:
@@ -147,6 +150,29 @@ uv run theme-extractor extract \
   --focus topics \
   --output data/out/extract_significant_text.json
 ```
+
+BERTopic (matrix options):
+
+```bash
+uv run theme-extractor extract \
+  --method bertopic \
+  --backend elasticsearch \
+  --backend-url http://localhost:9200 \
+  --index theme_extractor \
+  --focus both \
+  --query "match_all" \
+  --bertopic-use-embeddings \
+  --bertopic-embedding-model bge-m3 \
+  --bertopic-dim-reduction svd \
+  --bertopic-clustering kmeans \
+  --bertopic-nr-topics 8 \
+  --bertopic-min-topic-size 5 \
+  --output data/out/extract_bertopic.json
+```
+
+Notes:
+- If `sentence-transformers`, `umap-learn`, or `hdbscan` are missing, the CLI falls back to safe defaults and reports it in `notes`.
+- For strict offline runs, preload all optional models/dependencies before execution.
 
 Important note for `significant_terms` and `significant_text`:
 
