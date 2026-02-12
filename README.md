@@ -56,6 +56,7 @@ Ingestion-related env vars available in `.env.template`:
 - `THEME_EXTRACTOR_AUTO_STOPWORDS_MIN_DOC_RATIO`
 - `THEME_EXTRACTOR_AUTO_STOPWORDS_MIN_CORPUS_RATIO`
 - `THEME_EXTRACTOR_AUTO_STOPWORDS_MAX_TERMS`
+- `THEME_EXTRACTOR_PROXY_URL` (optional runtime proxy default for CLI commands)
 
 ### 1) Put Sample Documents In `data/raw/`
 
@@ -377,6 +378,39 @@ uv run theme-extractor benchmark \
   --output data/out/benchmark_significant_text.json
 ```
 
+### 6) Validate Offline and Proxy Modes
+
+Strict offline validation (LLM fallback without network):
+
+```bash
+uv run theme-extractor extract \
+  --method llm \
+  --backend elasticsearch \
+  --backend-url http://localhost:9200 \
+  --index theme_extractor \
+  --offline-policy strict \
+  --focus topics \
+  --output data/out/extract_llm_strict_offline.json
+```
+
+Proxy validation (single-run explicit proxy):
+
+```bash
+uv run theme-extractor extract \
+  --method terms \
+  --backend elasticsearch \
+  --backend-url http://localhost:9200 \
+  --index theme_extractor \
+  --proxy-url http://proxy.company.local:8080 \
+  --focus topics \
+  --output data/out/extract_terms_proxy.json
+```
+
+Notes:
+- `--proxy-url` sets runtime `HTTP_PROXY/HTTPS_PROXY` for the command execution.
+- You can define a default proxy with `THEME_EXTRACTOR_PROXY_URL` in `.env`.
+- For one-off overrides, CLI flag value takes precedence.
+
 ### OpenSearch Variant
 
 Start:
@@ -503,6 +537,27 @@ What to do:
 docker compose -f docker/compose.elasticsearch.yaml up -d
 docker ps
 curl -s http://localhost:9200
+```
+
+### Proxy was provided but network calls still fail
+
+Likely causes:
+
+- Proxy URL is malformed or unreachable from your host.
+- Corporate proxy requires authentication not included in URL.
+- Backend URL is blocked by network policy.
+
+What to do:
+
+```bash
+# 1) Verify proxy setting is exported in current shell
+echo "$THEME_EXTRACTOR_PROXY_URL"
+
+# 2) Run command with explicit proxy to avoid env ambiguity
+uv run theme-extractor extract --method terms --proxy-url http://<proxy-host>:<port> --focus topics
+
+# 3) Test backend reachability directly
+curl -x http://<proxy-host>:<port> -s http://localhost:9200
 ```
 
 ### Elasticsearch 9 fails to start with upgrade error from 8.x data
