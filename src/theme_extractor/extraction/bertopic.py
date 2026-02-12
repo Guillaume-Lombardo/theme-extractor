@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import math
+from importlib import import_module
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
@@ -23,6 +25,7 @@ from theme_extractor.domain import (
     UnifiedExtractionOutput,
 )
 from theme_extractor.extraction.baselines import BaselineExtractionConfig  # noqa: TC001
+from theme_extractor.extraction.utils import resolve_embedding_model_name
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -40,8 +43,11 @@ _SMALL_CORPUS_NOTE = "BERTopic requires at least 2 usable documents; output retu
 _UMAP_FALLBACK_NOTE = "UMAP unavailable or failed; dimensionality reduction fell back to none."
 _HDBSCAN_FALLBACK_NOTE = "HDBSCAN dependency missing; clustering fell back to kmeans."
 _EMBEDDINGS_FALLBACK_NOTE = "Embedding dependency missing; BERTopic fell back to TF-IDF vectors."
+_EMBEDDINGS_RUNTIME_FALLBACK_NOTE = "Embedding runtime failed; BERTopic fell back to TF-IDF vectors."
 _SEARCH_SIZE_LIMIT = 1000
 _SEARCH_SIZE_LIMIT_NOTE = f"BERTopic search_size was capped to {_SEARCH_SIZE_LIMIT} to limit memory usage."
+_DEFAULT_LOCAL_MODELS_DIR = Path("data/models")
+_NO_TOPICS_AFTER_FILTER_NOTE = "BERTopic produced no topics after min_topic_size/topic filtering."
 
 
 class BertopicExtractionConfig(BaseModel):
@@ -55,6 +61,7 @@ class BertopicExtractionConfig(BaseModel):
         nr_topics (int | None): Fixed number of topics for KMeans.
         min_topic_size (int): Minimum accepted topic size.
         seed (int): Random seed.
+        local_models_dir (Path | None): Local directory used to resolve embedding model aliases.
 
     """
 
@@ -67,6 +74,7 @@ class BertopicExtractionConfig(BaseModel):
     nr_topics: int | None = None
     min_topic_size: int = 10
     seed: int = 42
+    local_models_dir: Path | None = _DEFAULT_LOCAL_MODELS_DIR
 
 
 class BertopicRunRequest(BaseModel):
@@ -127,17 +135,24 @@ def _make_embeddings_if_enabled(
     *,
     use_embeddings: bool,
     embedding_model: str,
+    local_models_dir: Path | None,
     documents: list[str],
 ) -> tuple[NDArray | None, str | None]:
     if not use_embeddings:
         return None, None
     try:
-        from sentence_transformers import SentenceTransformer  # noqa: PLC0415
-
-        model = SentenceTransformer(embedding_model)
+        resolved_model = resolve_embedding_model_name(
+            embedding_model=embedding_model,
+            local_models_dir=local_models_dir,
+        )
+        sentence_transformers_module = import_module("sentence_transformers")
+        sentence_transformer_cls = sentence_transformers_module.SentenceTransformer
+        model = sentence_transformer_cls(resolved_model)
         vectors = model.encode(documents, convert_to_numpy=True, normalize_embeddings=True)
-    except Exception:
+    except ImportError:
         return None, _EMBEDDINGS_FALLBACK_NOTE
+    except Exception as exc:
+        return None, f"{_EMBEDDINGS_RUNTIME_FALLBACK_NOTE} Root error: {exc}"
     return vectors, None
 
 
@@ -371,6 +386,7 @@ def _compute_clustering_inputs(
     embedding_vectors, embedding_note = _make_embeddings_if_enabled(
         use_embeddings=request.bertopic_config.use_embeddings,
         embedding_model=request.bertopic_config.embedding_model,
+        local_models_dir=request.bertopic_config.local_models_dir,
         documents=documents,
     )
     if embedding_note:
@@ -453,6 +469,8 @@ def run_bertopic_method(
         request=request,
         document_ids=document_ids,
     )
+    if not topics:
+        output.notes.append(_NO_TOPICS_AFTER_FILTER_NOTE)
 
     output.topics = topics
     output.document_topics = _to_document_topics(

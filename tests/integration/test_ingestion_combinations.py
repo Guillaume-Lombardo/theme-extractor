@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 
 from theme_extractor.cli import main
@@ -25,8 +26,11 @@ def test_ingest_combines_manual_and_auto_stopwords(tmp_path, capsys) -> None:
             "--auto-stopwords",
             "--auto-stopwords-min-doc-ratio",
             "1.0",
+            "--auto-stopwords-min-corpus-ratio",
+            "0.1",
             "--auto-stopwords-max-terms",
             "10",
+            "--no-default-stopwords",
         ],
     )
 
@@ -36,6 +40,31 @@ def test_ingest_combines_manual_and_auto_stopwords(tmp_path, capsys) -> None:
     assert payload["processed_documents"] == _EXPECTED_INGESTED_DOCS
     assert payload["manual_stopwords"] == ["alpha"]
     assert "beta" in payload["auto_stopwords"]
+
+
+def test_ingest_manual_stopwords_from_csv_file(tmp_path, capsys) -> None:
+    doc = tmp_path / "a.txt"
+    csv_file = tmp_path / "stopwords.csv"
+    doc.write_text("facture copropriete copropriete alpha", encoding="utf-8")
+    with csv_file.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["stopword"])
+        writer.writerow(["copropriete"])
+
+    exit_code = main(
+        [
+            "ingest",
+            "--input",
+            str(doc),
+            "--manual-stopwords-file",
+            str(csv_file),
+            "--no-default-stopwords",
+        ],
+    )
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["manual_stopwords"] == ["copropriete"]
+    assert payload["manual_stopwords_files"] == [str(csv_file.resolve())]
 
 
 def test_ingest_cleaning_options_are_applied(tmp_path, capsys) -> None:

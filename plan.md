@@ -47,7 +47,7 @@ Create a production-grade toolkit to compare topic extraction strategies on hete
   - dimensionality reduction: none/svd/nmf/umap
   - clustering: kmeans/hdbscan
   - embedding model parameterized by user (default suggestion: bge-m3)
-- [ ] LLM strategy with offline-compatible fallback behavior
+- [x] LLM strategy with offline-compatible fallback behavior
 
 ### Phase 4 - Unified Restitution and Topic Characterization
 - [ ] Standardize all outputs to one schema
