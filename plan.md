@@ -90,7 +90,7 @@ Create a production-grade toolkit to compare topic extraction strategies on hete
   - stronger header/footer detection on multipage docs
   - richer `.msg` support (metadata and attachment text extraction policy)
 - [ ] Improve performance/scalability:
-  - streaming mode for large corpora (avoid retaining full text payloads)
+  - [x] streaming mode for large corpora (avoid retaining full text payloads)
   - optional embedding cache with deterministic keys/versioning
 
 ### Phase 7 - Rationalize documentation

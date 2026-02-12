@@ -138,6 +138,7 @@ def test_ingest_to_file_writes_json(tmp_path) -> None:
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     assert payload["command"] == "ingest"
     assert payload["processed_documents"] == 1
+    assert payload["streaming_mode"] is True
     assert payload["runtime"]["offline_policy"] == "strict"
     assert payload["documents"][0]["path"] == str(sample.resolve())
 

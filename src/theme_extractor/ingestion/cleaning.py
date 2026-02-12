@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from theme_extractor.domain import CleaningOptionFlag
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
 _TOKEN_RE = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'-]*")
@@ -175,20 +176,53 @@ def discover_auto_stopwords(
         set[str]: Automatically discovered stopwords.
 
     """
-    if not tokenized_documents:
-        return set()
-
-    total_docs = len(tokenized_documents)
-    total_tokens = sum(len(tokens) for tokens in tokenized_documents)
-    if total_tokens == 0:
-        return set()
-
     document_frequency: Counter[str] = Counter()
     collection_frequency: Counter[str] = Counter()
+    total_tokens = 0
 
     for tokens in tokenized_documents:
         document_frequency.update(set(tokens))
         collection_frequency.update(tokens)
+        total_tokens += len(tokens)
+
+    return discover_auto_stopwords_from_frequencies(
+        document_frequency=document_frequency,
+        collection_frequency=collection_frequency,
+        total_docs=len(tokenized_documents),
+        total_tokens=total_tokens,
+        min_doc_ratio=min_doc_ratio,
+        min_corpus_ratio=min_corpus_ratio,
+        max_terms=max_terms,
+    )
+
+
+def discover_auto_stopwords_from_frequencies(  # noqa: PLR0913
+    *,
+    document_frequency: Mapping[str, int],
+    collection_frequency: Mapping[str, int],
+    total_docs: int,
+    total_tokens: int,
+    min_doc_ratio: float,
+    min_corpus_ratio: float,
+    max_terms: int,
+) -> set[str]:
+    """Discover stopwords from precomputed corpus frequencies.
+
+    Args:
+        document_frequency (Mapping[str, int]): Per-token document frequency.
+        collection_frequency (Mapping[str, int]): Per-token corpus frequency.
+        total_docs (int): Number of tokenized documents.
+        total_tokens (int): Total number of tokens in corpus.
+        min_doc_ratio (float): Minimum document ratio threshold.
+        min_corpus_ratio (float): Minimum token ratio threshold.
+        max_terms (int): Maximum number of generated stopwords.
+
+    Returns:
+        set[str]: Automatically discovered stopwords.
+
+    """
+    if total_docs <= 0 or total_tokens <= 0:
+        return set()
 
     candidates = [
         term
@@ -196,12 +230,12 @@ def discover_auto_stopwords(
         if len(term) > 1
         and not term.isdigit()
         and count / total_docs >= min_doc_ratio
-        and collection_frequency[term] / total_tokens >= min_corpus_ratio
+        and collection_frequency.get(term, 0) / total_tokens >= min_corpus_ratio
     ]
     candidates.sort(
         key=lambda term: (
             -(document_frequency[term] / total_docs),
-            -(collection_frequency[term] / total_tokens),
+            -(collection_frequency.get(term, 0) / total_tokens),
             term,
         ),
     )

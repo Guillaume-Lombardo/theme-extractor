@@ -89,3 +89,44 @@ def test_ingest_cleaning_options_are_applied(tmp_path, capsys) -> None:
     assert "resume" in preview
     assert "https" not in preview
     assert "x@y.z" not in preview
+
+
+def test_ingest_streaming_and_non_streaming_modes_match_counts(tmp_path, capsys) -> None:
+    doc = tmp_path / "sample.txt"
+    doc.write_text("alpha alpha beta gamma", encoding="utf-8")
+
+    streaming_exit = main(
+        [
+            "ingest",
+            "--input",
+            str(doc),
+            "--manual-stopwords",
+            "alpha",
+            "--no-default-stopwords",
+            "--streaming-mode",
+        ],
+    )
+    assert streaming_exit == 0
+    streaming_payload = json.loads(capsys.readouterr().out)
+
+    classic_exit = main(
+        [
+            "ingest",
+            "--input",
+            str(doc),
+            "--manual-stopwords",
+            "alpha",
+            "--no-default-stopwords",
+            "--no-streaming-mode",
+        ],
+    )
+    assert classic_exit == 0
+    classic_payload = json.loads(capsys.readouterr().out)
+
+    assert streaming_payload["streaming_mode"] is True
+    assert classic_payload["streaming_mode"] is False
+    assert streaming_payload["documents"][0]["token_count"] == classic_payload["documents"][0]["token_count"]
+    assert (
+        streaming_payload["documents"][0]["removed_stopword_count"]
+        == classic_payload["documents"][0]["removed_stopword_count"]
+    )

@@ -7,6 +7,8 @@ from typing import Any
 from theme_extractor.cli import main
 from theme_extractor.extraction import llm as llm_mod
 
+_EXPECTED_REMOVED_STOPWORDS = 2
+
 
 @dataclass
 class _BackendStub:
@@ -93,6 +95,33 @@ def test_ingest_end2end_generates_json_output_file(tmp_path) -> None:
     assert payload["command"] == "ingest"
     assert payload["input_path"] == str(corpus_file.resolve())
     assert payload["processed_documents"] == 1
+    assert payload["streaming_mode"] is True
+
+
+def test_ingest_end2end_no_streaming_mode(tmp_path) -> None:
+    corpus_file = tmp_path / "doc.txt"
+    corpus_file.write_text("alpha alpha beta", encoding="utf-8")
+    output_path = tmp_path / "ingest-e2e-nostream.json"
+
+    exit_code = main(
+        [
+            "ingest",
+            "--input",
+            str(corpus_file),
+            "--manual-stopwords",
+            "alpha",
+            "--no-default-stopwords",
+            "--no-streaming-mode",
+            "--output",
+            str(output_path),
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["streaming_mode"] is False
+    assert payload["documents"][0]["token_count"] == 1
+    assert payload["documents"][0]["removed_stopword_count"] == _EXPECTED_REMOVED_STOPWORDS
 
 
 def test_extract_end2end_generates_json_output_file(tmp_path, monkeypatch) -> None:
