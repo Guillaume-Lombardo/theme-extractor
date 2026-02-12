@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from theme_extractor.domain import (
     BackendName,
     BenchmarkOutput,
@@ -15,6 +17,7 @@ from theme_extractor.domain import (
     UnifiedExtractionOutput,
 )
 from theme_extractor.reporting.markdown import (
+    UnsupportedReportPayloadError,
     load_report_payload,
     render_benchmark_markdown,
     render_extract_markdown,
@@ -108,3 +111,11 @@ def test_load_report_payload_benchmark_from_file(tmp_path) -> None:
     rendered = render_report_markdown(input_path)
     assert "Theme Extractor Benchmark Report" in rendered
     assert "Method Comparison" in rendered
+
+
+def test_load_report_payload_raises_for_unsupported_shape(tmp_path) -> None:
+    input_path = tmp_path / "invalid.json"
+    input_path.write_text(json.dumps({"hello": "world"}), encoding="utf-8")
+
+    with pytest.raises(UnsupportedReportPayloadError):
+        load_report_payload(input_path)
