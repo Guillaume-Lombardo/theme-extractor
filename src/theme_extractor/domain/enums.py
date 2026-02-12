@@ -15,6 +15,7 @@ class CommandName(StrEnum):
     BENCHMARK = "benchmark"
     DOCTOR = "doctor"
     REPORT = "report"
+    EVALUATE = "evaluate"
 
 
 class BackendName(StrEnum):

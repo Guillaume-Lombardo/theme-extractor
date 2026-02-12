@@ -432,3 +432,38 @@ def test_report_end2end_from_extract_output(tmp_path, monkeypatch) -> None:
     report_content = report_path.read_text(encoding="utf-8")
     assert "# Theme Extractor Report" in report_content
     assert "## Topics" in report_content
+
+
+def test_evaluate_end2end_from_extract_output(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+
+    extract_path = tmp_path / "extract.json"
+    evaluation_path = tmp_path / "evaluation.json"
+
+    extract_exit_code = main(
+        [
+            "extract",
+            "--method",
+            "keybert",
+            "--focus",
+            "topics",
+            "--output",
+            str(extract_path),
+        ],
+    )
+    assert extract_exit_code == 0
+
+    evaluate_exit_code = main(
+        [
+            "evaluate",
+            "--input",
+            str(extract_path),
+            "--output",
+            str(evaluation_path),
+        ],
+    )
+    assert evaluate_exit_code == 0
+
+    payload = json.loads(evaluation_path.read_text(encoding="utf-8"))
+    assert payload["command"] == "evaluate"
+    assert payload["summary"]["extract_count"] == 1

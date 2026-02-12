@@ -33,6 +33,7 @@ from theme_extractor.domain import (
     method_flag_to_methods,
     parse_extract_method,
 )
+from theme_extractor.evaluation import evaluate_payload_files
 from theme_extractor.extraction import (
     BaselineExtractionConfig,
     BaselineRunRequest,
@@ -692,6 +693,27 @@ def _build_report_parser(subparsers: argparse._SubParsersAction[argparse.Argumen
     report_parser.set_defaults(handler=_handle_report)
 
 
+def _build_evaluate_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    """Register the evaluate subcommand parser.
+
+    Args:
+        subparsers (argparse._SubParsersAction[argparse.ArgumentParser]): Subparser registry.
+
+    """
+    evaluate_parser = subparsers.add_parser(
+        CommandName.EVALUATE.value,
+        help="Compute quantitative proxy metrics from extract/benchmark JSON payloads.",
+    )
+    evaluate_parser.add_argument(
+        "--input",
+        action="append",
+        required=True,
+        help="Input JSON path. Repeat flag to evaluate multiple files.",
+    )
+    _add_output_flag(evaluate_parser)
+    evaluate_parser.set_defaults(handler=_handle_evaluate)
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the root parser and all subcommands.
 
@@ -710,6 +732,7 @@ def build_parser() -> argparse.ArgumentParser:
     _build_benchmark_parser(subparsers)
     _build_doctor_parser(subparsers)
     _build_report_parser(subparsers)
+    _build_evaluate_parser(subparsers)
 
     return parser
 
@@ -839,6 +862,20 @@ def _handle_report(args: argparse.Namespace) -> str:
     """
     input_path = Path(str(args.input)).expanduser().resolve()
     return render_report_markdown(input_path=input_path, title=args.title)
+
+
+def _handle_evaluate(args: argparse.Namespace) -> dict[str, Any]:
+    """Build quantitative proxy metrics from one or many JSON payloads.
+
+    Args:
+        args (argparse.Namespace): Parsed command-line arguments.
+
+    Returns:
+        dict[str, Any]: Quantitative metrics payload.
+
+    """
+    input_paths = [Path(str(path)).expanduser().resolve() for path in args.input]
+    return evaluate_payload_files(input_paths)
 
 
 def _handle_ingest(args: argparse.Namespace) -> dict[str, Any]:
