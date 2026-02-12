@@ -44,6 +44,13 @@ cp .env.template .env
 set -a; source .env; set +a
 ```
 
+Ingestion-related env vars available in `.env.template`:
+- `THEME_EXTRACTOR_DEFAULT_STOPWORDS_ENABLED`
+- `THEME_EXTRACTOR_AUTO_STOPWORDS_ENABLED`
+- `THEME_EXTRACTOR_AUTO_STOPWORDS_MIN_DOC_RATIO`
+- `THEME_EXTRACTOR_AUTO_STOPWORDS_MIN_CORPUS_RATIO`
+- `THEME_EXTRACTOR_AUTO_STOPWORDS_MAX_TERMS`
+
 ### 1) Put Sample Documents In `data/raw/`
 
 ```bash
@@ -236,11 +243,11 @@ uv run theme-extractor extract \
   --query "match_all" \
   --bertopic-use-embeddings \
   --bertopic-embedding-model bge-m3 \
-  --bertopic-dim-reduction nmf \
+  --bertopic-dim-reduction umap \
   --bertopic-clustering kmeans \
   --bertopic-nr-topics 8 \
   --bertopic-min-topic-size 5 \
-  --output data/out/extract_bertopic-nmf-kmeans.json
+  --output data/out/extract_bertopic-umap-kmeans.json
 ```
 
 Notes:
@@ -289,6 +296,15 @@ LLM notes:
 - In `preload_or_first_run`, if API credentials are missing or provider runtime fails, the strategy still falls back to TF-IDF and records the reason in `notes`.
 - If `keybert` is missing at runtime, the `keybert` method falls back to TF-IDF and records the fallback reason in `notes`.
 - KeyBERT embedding flags mirror BERTopic behavior: `--keybert-use-embeddings`, `--keybert-embedding-model`, and `--keybert-local-models-dir`.
+
+Ingestion stopwords notes:
+- Default FR/EN stopwords are enabled during `ingest`.
+- Disable them if you need raw token behavior: `--no-default-stopwords`.
+- Add project-specific stopwords with files:
+  - `--manual-stopwords-file config/stopwords.yaml`
+  - `--manual-stopwords-file config/stopwords.csv`
+- Auto stopwords use both document coverage and corpus frequency:
+  - `--auto-stopwords --auto-stopwords-min-doc-ratio 0.7 --auto-stopwords-min-corpus-ratio 0.01`
 
 Important note for `significant_terms` and `significant_text`:
 
@@ -433,11 +449,15 @@ What to do:
 
 - Re-index with full cleaning:
   - `--cleaning-options all`
+- Keep default FR/EN stopwords enabled (nltk if available, otherwise fallback lists):
+  - enabled by default, disable only if needed with `--no-default-stopwords`
 - Exclude non-business files from `data/raw/` for benchmark runs.
 - Add manual stopwords during ingest:
-  - `--manual-stopwords "de,le,la,the,and,of"`
-- Optionally enable automatic corpus-based stopwords:
-  - `--auto-stopwords --auto-stopwords-min-doc-ratio 0.7`
+  - inline: `--manual-stopwords "de,le,la,the,and,of"`
+  - file-based: `--manual-stopwords-file config/stopwords.yaml`
+  - file-based CSV: `--manual-stopwords-file config/stopwords.csv`
+- Enable corpus-based automatic stopwords with stronger filtering:
+  - `--auto-stopwords --auto-stopwords-min-doc-ratio 0.7 --auto-stopwords-min-corpus-ratio 0.01`
 
 ### Terms results contain many one-character tokens (`a`, `b`, `c`, ...)
 

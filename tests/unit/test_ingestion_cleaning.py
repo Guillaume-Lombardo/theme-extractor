@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import csv
+
 from theme_extractor.domain import CleaningOptionFlag
 from theme_extractor.ingestion.cleaning import (
     apply_cleaning_options,
     discover_auto_stopwords,
+    get_default_stopwords,
+    load_stopwords_from_file,
     normalize_french_accents,
     normalize_whitespace,
     suppress_headers_footers,
@@ -33,8 +37,32 @@ def test_tokenize_for_ingestion_lowercases_words() -> None:
 
 def test_discover_auto_stopwords_from_doc_ratio() -> None:
     docs = [["alpha", "beta"], ["alpha", "gamma"], ["alpha", "delta"]]
-    auto = discover_auto_stopwords(docs, min_doc_ratio=1.0, max_terms=10)
+    auto = discover_auto_stopwords(docs, min_doc_ratio=1.0, min_corpus_ratio=0.1, max_terms=10)
     assert auto == {"alpha"}
+
+
+def test_get_default_stopwords_contains_fr_en_basics() -> None:
+    stopwords = get_default_stopwords()
+    assert "le" in stopwords
+    assert "la" in stopwords
+    assert "the" in stopwords
+    assert "and" in stopwords
+
+
+def test_load_stopwords_from_yaml_file(tmp_path) -> None:
+    file_path = tmp_path / "manual-stopwords.yaml"
+    file_path.write_text("stopwords:\n  - facture\n  - copropriete\n", encoding="utf-8")
+    assert load_stopwords_from_file(file_path) == {"facture", "copropriete"}
+
+
+def test_load_stopwords_from_csv_file(tmp_path) -> None:
+    file_path = tmp_path / "manual-stopwords.csv"
+    with file_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["stopword"])
+        writer.writerow(["facture"])
+        writer.writerow(["copropriete"])
+    assert load_stopwords_from_file(file_path) == {"facture", "copropriete"}
 
 
 def test_apply_cleaning_options_combines_flags() -> None:

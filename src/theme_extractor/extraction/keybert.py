@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from theme_extractor.search.protocols import SearchBackend
 
 from theme_extractor.extraction.baselines import BaselineExtractionConfig  # noqa: TC001
+from theme_extractor.extraction.utils import resolve_embedding_model_name
 
 
 class KeyBertRunRequest(BaseModel):
@@ -181,7 +182,7 @@ def _extract_keywords_with_keybert(
     """
     from keybert import KeyBERT  # noqa: PLC0415
 
-    model_name = _resolve_embedding_model_name(
+    model_name = resolve_embedding_model_name(
         embedding_model=keybert_config.embedding_model,
         local_models_dir=keybert_config.local_models_dir,
     )
@@ -206,37 +207,6 @@ def _extract_keywords_with_keybert(
             if isinstance(term, str) and isinstance(score_raw, int | float):
                 normalized_keywords.append((term, float(score_raw)))
     return normalized_keywords
-
-
-def _resolve_embedding_model_name(
-    *,
-    embedding_model: str,
-    local_models_dir: Path | None,
-) -> str:
-    """Resolve model id to a direct local path when available.
-
-    Args:
-        embedding_model (str): Raw model value from CLI.
-        local_models_dir (Path | None): Optional local aliases directory.
-
-    Returns:
-        str: Resolved model value.
-
-    """
-    normalized = embedding_model.strip()
-    if not normalized:
-        return normalized
-
-    direct_path = Path(normalized).expanduser()
-    if direct_path.exists():
-        return str(direct_path.resolve())
-
-    if local_models_dir is not None:
-        local_candidate = (local_models_dir / normalized).expanduser()
-        if local_candidate.exists():
-            return str(local_candidate.resolve())
-
-    return normalized
 
 
 def run_keybert_method(

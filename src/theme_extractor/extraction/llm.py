@@ -35,6 +35,7 @@ _EMPTY_CORPUS_NOTE = "LLM strategy executed with empty corpus from backend searc
 _LLM_SUCCESS_NOTE = "LLM strategy executed with provider response."
 _OPENAI_PROMPT_MAX_CHARS = 20_000
 _KEYWORD_TERM_AND_SCORE_LENGTH = 2
+_MAX_EXCEPTION_NOTE_CHARS = 300
 
 
 class LlmExtractionConfig(BaseModel):
@@ -242,13 +243,16 @@ def _extract_keywords_with_llm(
             )
         else:
             keywords = []
-    except Exception:
+    except Exception as exc:
+        reason = f"{exc.__class__.__name__}: {exc}"
+        if len(reason) > _MAX_EXCEPTION_NOTE_CHARS:
+            reason = f"{reason[:_MAX_EXCEPTION_NOTE_CHARS]}..."
         return (
             _extract_keywords_with_tfidf_fallback(
                 corpus_text=corpus_text,
                 top_n=request.baseline_config.top_n,
             ),
-            _LLM_RUNTIME_FALLBACK_NOTE,
+            f"{_LLM_RUNTIME_FALLBACK_NOTE} Root error: {reason}",
         )
 
     if not keywords:

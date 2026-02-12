@@ -25,6 +25,7 @@ from theme_extractor.domain import (
     UnifiedExtractionOutput,
 )
 from theme_extractor.extraction.baselines import BaselineExtractionConfig  # noqa: TC001
+from theme_extractor.extraction.utils import resolve_embedding_model_name
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -140,7 +141,10 @@ def _make_embeddings_if_enabled(
     if not use_embeddings:
         return None, None
     try:
-        resolved_model = _resolve_embedding_model_name(embedding_model, local_models_dir)
+        resolved_model = resolve_embedding_model_name(
+            embedding_model=embedding_model,
+            local_models_dir=local_models_dir,
+        )
         sentence_transformers_module = import_module("sentence_transformers")
         sentence_transformer_cls = sentence_transformers_module.SentenceTransformer
         model = sentence_transformer_cls(resolved_model)
@@ -150,36 +154,6 @@ def _make_embeddings_if_enabled(
     except Exception as exc:
         return None, f"{_EMBEDDINGS_RUNTIME_FALLBACK_NOTE} Root error: {exc}"
     return vectors, None
-
-
-def _resolve_embedding_model_name(
-    embedding_model: str,
-    local_models_dir: Path | None,
-) -> str:
-    """Resolve an embedding model argument to a local path when possible.
-
-    Args:
-        embedding_model (str): Raw user-provided model value.
-        local_models_dir (Path | None): Optional local model directory.
-
-    Returns:
-        str: Resolved model identifier or absolute local path.
-
-    """
-    normalized = embedding_model.strip()
-    if not normalized:
-        return normalized
-
-    direct_path = Path(normalized).expanduser()
-    if direct_path.exists():
-        return str(direct_path.resolve())
-
-    if local_models_dir is not None:
-        local_candidate = (local_models_dir / normalized).expanduser()
-        if local_candidate.exists():
-            return str(local_candidate.resolve())
-
-    return normalized
 
 
 def _apply_reduction(

@@ -63,6 +63,28 @@ _BASELINE_METHODS = {
 _SEARCH_DRIVEN_METHODS = _BASELINE_METHODS | {ExtractMethod.KEYBERT, ExtractMethod.LLM}
 
 
+def _env_bool(name: str, *, default_value: bool) -> bool:
+    """Read a boolean value from environment variables.
+
+    Args:
+        name (str): Environment variable name.
+        default_value (bool): Fallback value when missing or invalid.
+
+    Returns:
+        bool: Parsed boolean value.
+
+    """
+    raw = os.getenv(name)
+    if raw is None:
+        return default_value
+    normalized = raw.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    return default_value
+
+
 def _emit_payload(payload: dict[str, Any] | BaseModel, output: str) -> None:
     """Emit payload to stdout or to a JSON file.
 
@@ -472,22 +494,40 @@ def _build_ingest_parser(subparsers: argparse._SubParsersAction[argparse.Argumen
         help="Comma-separated manual stopwords to remove.",
     )
     ingest_parser.add_argument(
+        "--manual-stopwords-file",
+        action="append",
+        default=[],
+        help="Path to a YAML/CSV/text file containing extra manual stopwords. Can be repeated.",
+    )
+    ingest_parser.add_argument(
+        "--default-stopwords",
+        default=_env_bool("THEME_EXTRACTOR_DEFAULT_STOPWORDS_ENABLED", default_value=True),
+        action=argparse.BooleanOptionalAction,
+        help="Enable default FR/EN stopwords loaded from nltk (or fallback lists).",
+    )
+    ingest_parser.add_argument(
         "--auto-stopwords",
-        default=False,
+        default=_env_bool("THEME_EXTRACTOR_AUTO_STOPWORDS_ENABLED", default_value=False),
         action=argparse.BooleanOptionalAction,
         help="Enable automatic stopwords generation from corpus statistics.",
     )
     ingest_parser.add_argument(
         "--auto-stopwords-min-doc-ratio",
-        default=0.7,
+        default=float(os.getenv("THEME_EXTRACTOR_AUTO_STOPWORDS_MIN_DOC_RATIO", "0.7")),
         type=float,
         help="Minimum document ratio for auto stopwords generation.",
     )
     ingest_parser.add_argument(
         "--auto-stopwords-max-terms",
-        default=200,
+        default=int(os.getenv("THEME_EXTRACTOR_AUTO_STOPWORDS_MAX_TERMS", "200")),
         type=int,
         help="Maximum number of automatically generated stopwords.",
+    )
+    ingest_parser.add_argument(
+        "--auto-stopwords-min-corpus-ratio",
+        default=float(os.getenv("THEME_EXTRACTOR_AUTO_STOPWORDS_MIN_CORPUS_RATIO", "0.01")),
+        type=float,
+        help="Minimum corpus frequency ratio for auto stopwords generation.",
     )
     ingest_parser.add_argument(
         "--cleaning-options",
@@ -590,13 +630,17 @@ def _handle_ingest(args: argparse.Namespace) -> dict[str, Any]:
     manual_stopwords = {
         word.strip().lower() for word in str(args.manual_stopwords).split(",") if word.strip()
     }
+    manual_stopwords_files = [Path(path).expanduser().resolve() for path in args.manual_stopwords_file]
     config = IngestionConfig(
         input_path=Path(args.input).expanduser().resolve(),
         recursive=bool(args.recursive),
         cleaning_options=cleaning_flag_from_string(str(args.cleaning_options)),
         manual_stopwords=manual_stopwords,
+        manual_stopwords_files=manual_stopwords_files,
+        default_stopwords_enabled=bool(args.default_stopwords),
         auto_stopwords_enabled=bool(args.auto_stopwords),
         auto_stopwords_min_doc_ratio=float(args.auto_stopwords_min_doc_ratio),
+        auto_stopwords_min_corpus_ratio=float(args.auto_stopwords_min_corpus_ratio),
         auto_stopwords_max_terms=int(args.auto_stopwords_max_terms),
     )
     result = run_ingestion(config)
