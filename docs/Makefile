@@ -10,6 +10,7 @@ help:
 
 clean:
 	@rm -rf "$(BUILDDIR)"
+	@rm -rf _generated
 
 html:
 	@$(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)

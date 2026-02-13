@@ -47,6 +47,8 @@ def _copy_external_markdown() -> None:
 
     howto_src_dir = _REPO_ROOT / "howto"
     for source_file in sorted(howto_src_dir.glob("*.md")):
+        if source_file.name == "README.md":
+            continue
         shutil.copy2(source_file, _GENERATED_DIR / source_file.name)
 
 
