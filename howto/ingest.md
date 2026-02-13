@@ -19,7 +19,7 @@ uv run theme-extractor ingest \
   --recursive \
   --cleaning-options all \
   --manual-stopwords "de,le,la,the,and,of" \
-  --manual-stopwords-file config/stopwords.yaml \
+  --manual-stopwords-file path/to/stopwords.yaml \
   --auto-stopwords \
   --auto-stopwords-min-doc-ratio 0.7 \
   --auto-stopwords-min-corpus-ratio 0.01 \
@@ -27,6 +27,8 @@ uv run theme-extractor ingest \
   --streaming-mode \
   --output data/out/ingest.json
 ```
+
+Create your stopwords file yourself (YAML/CSV/TXT), then pass its path with `--manual-stopwords-file`.
 
 ## Important Options
 

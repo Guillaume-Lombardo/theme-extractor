@@ -1,6 +1,7 @@
 # theme-extractor
 
 Python toolkit to compare theme/topic extraction strategies on the same corpus, with:
+
 - one unified CLI
 - one unified JSON output schema
 - offline-first execution options
@@ -24,12 +25,14 @@ It lets you run baseline lexical methods, embedding-based methods, and LLM-assis
 
 ## Quickstart
 
+Prerequisite: start one backend first (local Docker guide: [`/howto/docker-local.md`](howto/docker-local.md)).
+
 ```bash
 uv sync --group elasticsearch
 uv run theme-extractor doctor --output data/out/doctor.json
 uv run theme-extractor ingest --input data/raw --output data/out/ingest.json
 uv run theme-extractor benchmark \
-  --methods baseline_tfidf,terms,significant_terms,significant_text,keybert,bertopic \
+  --methods baseline_tfidf,terms,significant_terms,keybert,bertopic \
   --backend elasticsearch \
   --backend-url http://localhost:9200 \
   --index theme_extractor \
@@ -42,6 +45,8 @@ uv run theme-extractor report \
   --input data/out/benchmark.json \
   --output data/out/report_benchmark.md
 ```
+
+Run `significant_text` separately with `--agg-field content` (see [`/howto/benchmark.md`](howto/benchmark.md)).
 
 ## Methods Available
 
@@ -91,6 +96,7 @@ set -a; source .env; set +a
 ```
 
 Important variable groups:
+
 - backend/runtime (`THEME_EXTRACTOR_BACKEND*`, `THEME_EXTRACTOR_PROXY_URL`)
 - ingestion stopwords (`THEME_EXTRACTOR_DEFAULT_STOPWORDS_ENABLED`, `THEME_EXTRACTOR_AUTO_STOPWORDS_*`)
 - local model resolution (`THEME_EXTRACTOR_LOCAL_MODELS_DIR`)

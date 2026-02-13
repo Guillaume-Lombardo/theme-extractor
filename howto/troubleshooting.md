@@ -8,7 +8,7 @@ Likely cause:
 Fix:
 - Use a focused query, for example:
   - `--query "facture OR impot OR copropriete"`
-- Keep method-specific aggregation fields:
+- Keep method-specific aggregation fields (requires separate runs, because `benchmark` accepts one shared `--agg-field`):
   - `significant_terms` with `--agg-field tokens`
   - `significant_text` with `--agg-field content`
 
@@ -24,7 +24,7 @@ Fix:
 - Keep default stopwords enabled (default behavior).
 - Add manual stopwords:
   - inline: `--manual-stopwords "de,le,la,the,and,of"`
-  - file-based: `--manual-stopwords-file config/stopwords.yaml`
+  - file-based: `--manual-stopwords-file path/to/stopwords.yaml` (create this file yourself)
 - Enable automatic stopwords discovery:
   - `--auto-stopwords --auto-stopwords-min-doc-ratio 0.7 --auto-stopwords-min-corpus-ratio 0.01`
 

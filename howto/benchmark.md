@@ -5,15 +5,45 @@ Run several methods in one command and compare outputs on the same corpus slice.
 
 ## Example Run
 
+Broad + semantic methods:
+
 ```bash
 uv run theme-extractor benchmark \
-  --methods baseline_tfidf,terms,significant_terms,significant_text,keybert,bertopic,llm \
+  --methods baseline_tfidf,terms,keybert,bertopic,llm \
   --backend elasticsearch \
   --backend-url http://localhost:9200 \
   --index theme_extractor \
   --focus both \
   --query "facture OR copropriete OR impot" \
   --output data/out/benchmark_all.json
+```
+
+Significant terms run:
+
+```bash
+uv run theme-extractor benchmark \
+  --methods significant_terms \
+  --backend elasticsearch \
+  --backend-url http://localhost:9200 \
+  --index theme_extractor \
+  --query "facture OR copropriete OR impot" \
+  --agg-field tokens \
+  --focus both \
+  --output data/out/benchmark_significant_terms.json
+```
+
+Significant text run:
+
+```bash
+uv run theme-extractor benchmark \
+  --methods significant_text \
+  --backend elasticsearch \
+  --backend-url http://localhost:9200 \
+  --index theme_extractor \
+  --query "facture OR copropriete OR impot" \
+  --agg-field content \
+  --focus both \
+  --output data/out/benchmark_significant_text.json
 ```
 
 ## Recommended Comparison Workflow
