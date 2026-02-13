@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from docker import index_corpus
 
 _EXPECTED_REMOVED_STOPWORDS = 2
@@ -35,6 +37,19 @@ def test_mapping_body_contains_raw_and_clean_content_fields() -> None:
     assert "content_raw" in properties
     assert "content_clean" in properties
     assert "content" in properties
+
+
+def test_iter_supported_files_accepts_single_file_input(tmp_path) -> None:
+    doc = tmp_path / "doc.txt"
+    doc.write_text("alpha beta", encoding="utf-8")
+    assert index_corpus._iter_supported_files(doc) == [doc]
+
+
+def test_build_parser_does_not_crash_on_non_numeric_env_defaults(monkeypatch) -> None:
+    monkeypatch.setenv("THEME_EXTRACTOR_AUTO_STOPWORDS_MIN_DOC_RATIO", "oops")
+    parser = index_corpus.build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--input", "data/raw"])
 
 
 def test_build_index_documents_filters_stopwords_from_index_fields() -> None:

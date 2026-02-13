@@ -120,19 +120,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--auto-stopwords-min-doc-ratio",
-        default=float(os.getenv("THEME_EXTRACTOR_AUTO_STOPWORDS_MIN_DOC_RATIO", "0.7")),
+        default=os.getenv("THEME_EXTRACTOR_AUTO_STOPWORDS_MIN_DOC_RATIO", "0.7"),
         type=float,
         help="Minimum document ratio for auto stopwords generation.",
     )
     parser.add_argument(
         "--auto-stopwords-max-terms",
-        default=int(os.getenv("THEME_EXTRACTOR_AUTO_STOPWORDS_MAX_TERMS", "200")),
+        default=os.getenv("THEME_EXTRACTOR_AUTO_STOPWORDS_MAX_TERMS", "200"),
         type=int,
         help="Maximum number of automatically generated stopwords.",
     )
     parser.add_argument(
         "--auto-stopwords-min-corpus-ratio",
-        default=float(os.getenv("THEME_EXTRACTOR_AUTO_STOPWORDS_MIN_CORPUS_RATIO", "0.01")),
+        default=os.getenv("THEME_EXTRACTOR_AUTO_STOPWORDS_MIN_CORPUS_RATIO", "0.01"),
         type=float,
         help="Minimum corpus frequency ratio for auto stopwords generation.",
     )
@@ -156,6 +156,8 @@ def _iter_supported_files(root: Path) -> list[Path]:
 
     """
     suffixes = supported_suffixes()
+    if root.is_file():
+        return [root] if root.suffix.lower() in suffixes else []
     return [path for path in sorted(root.glob("**/*")) if path.is_file() and path.suffix.lower() in suffixes]
 
 
