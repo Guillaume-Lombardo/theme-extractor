@@ -573,6 +573,15 @@ def _build_ingest_parser(subparsers: argparse._SubParsersAction[argparse.Argumen
             "boilerplate, token_cleanup, html_strip."
         ),
     )
+    ingest_parser.add_argument(
+        "--streaming-mode",
+        default=True,
+        action=argparse.BooleanOptionalAction,
+        help=(
+            "Enable compact ingestion mode that keeps token-frequency summaries instead of "
+            "full token lists to reduce memory usage on large corpora."
+        ),
+    )
     _add_shared_runtime_flags(ingest_parser)
     _add_output_flag(ingest_parser)
     ingest_parser.set_defaults(handler=_handle_ingest)
@@ -903,6 +912,7 @@ def _handle_ingest(args: argparse.Namespace) -> dict[str, Any]:
         auto_stopwords_min_doc_ratio=float(args.auto_stopwords_min_doc_ratio),
         auto_stopwords_min_corpus_ratio=float(args.auto_stopwords_min_corpus_ratio),
         auto_stopwords_max_terms=int(args.auto_stopwords_max_terms),
+        streaming_mode=bool(args.streaming_mode),
     )
     result = run_ingestion(config)
     payload = result.model_dump(mode="json")

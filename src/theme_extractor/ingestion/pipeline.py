@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections import Counter
 from pathlib import Path  # noqa: TC003
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -11,6 +12,7 @@ from theme_extractor.domain import CleaningOptionFlag, cleaning_flag_to_string, 
 from theme_extractor.ingestion.cleaning import (
     apply_cleaning_options,
     discover_auto_stopwords,
+    discover_auto_stopwords_from_frequencies,
     get_default_stopwords,
     load_stopwords_from_files,
     normalize_french_accents,
@@ -33,6 +35,7 @@ class IngestionConfig(BaseModel):
         auto_stopwords_min_doc_ratio (float): Minimum document coverage ratio.
         auto_stopwords_min_corpus_ratio (float): Minimum corpus frequency ratio.
         auto_stopwords_max_terms (int): Maximum count of auto stopwords.
+        streaming_mode (bool): Enable compact token-frequency aggregation mode.
 
     """
 
@@ -46,6 +49,7 @@ class IngestionConfig(BaseModel):
     auto_stopwords_min_doc_ratio: float = 0.7
     auto_stopwords_min_corpus_ratio: float = 0.01
     auto_stopwords_max_terms: int = 200
+    streaming_mode: bool = True
 
 
 class IngestedDocument(BaseModel):
@@ -80,6 +84,7 @@ class IngestionRunResult(BaseModel):
         default_stopwords_enabled (bool): Whether default stopwords were enabled.
         default_stopwords_count (int): Number of default stopwords loaded.
         auto_stopwords_enabled (bool): Whether auto stopwords were enabled.
+        streaming_mode (bool): Whether compact streaming mode was enabled.
         manual_stopwords (list[str]): Effective manual stopwords (CLI + files).
         manual_stopwords_files (list[str]): Manual stopwords file paths.
         auto_stopwords (list[str]): Auto-generated stopwords.
@@ -99,6 +104,7 @@ class IngestionRunResult(BaseModel):
     default_stopwords_enabled: bool
     default_stopwords_count: int
     auto_stopwords_enabled: bool
+    streaming_mode: bool
     manual_stopwords: list[str]
     manual_stopwords_files: list[str]
     auto_stopwords: list[str]
@@ -121,6 +127,30 @@ class _ProcessedDocumentMetadata(BaseModel):
     tokens: list[str]
 
 
+class _ProcessedDocumentStats(BaseModel):
+    """Represent compact processed document statistics for streaming mode."""
+
+    model_config = ConfigDict(frozen=True)
+
+    path: Path
+    raw_length: int
+    clean_length: int
+    clean_text_preview: str
+    token_count: int
+    token_frequencies: dict[str, int]
+
+
+class _CorpusTokenStats(BaseModel):
+    """Represent aggregated corpus token statistics."""
+
+    model_config = ConfigDict(frozen=True)
+
+    document_frequency: dict[str, int]
+    collection_frequency: dict[str, int]
+    total_docs: int
+    total_tokens: int
+
+
 class IngestionPipeline:
     """Run ingestion and cleaning over a local corpus path."""
 
@@ -141,16 +171,64 @@ class IngestionPipeline:
 
         """
         files = list(self._iter_candidate_files())
-        tokenized_documents, processed_items, skipped = self._collect_processed_items(files)
+        skipped: list[SkippedDocument] = []
+        documents: list[IngestedDocument] = []
 
-        (
-            auto_stopwords,
-            manual_cli_stopwords,
-            manual_file_stopwords,
-            default_stopwords,
-            stopwords,
-        ) = self._build_stopwords(tokenized_documents)
+        if self.config.streaming_mode:
+            processed_stats, skipped, corpus_stats = self._collect_processed_stats(files)
+            (
+                auto_stopwords,
+                manual_cli_stopwords,
+                manual_file_stopwords,
+                default_stopwords,
+                stopwords,
+            ) = self._build_stopwords_from_stats(corpus_stats)
+            documents = self._build_documents_from_stats(processed_stats, stopwords)
+        else:
+            tokenized_documents, processed_items, skipped = self._collect_processed_items(files)
+            (
+                auto_stopwords,
+                manual_cli_stopwords,
+                manual_file_stopwords,
+                default_stopwords,
+                stopwords,
+            ) = self._build_stopwords(tokenized_documents)
+            documents = self._build_documents_from_metadata(processed_items, stopwords)
 
+        return IngestionRunResult(
+            input_path=str(self.config.input_path),
+            recursive=self.config.recursive,
+            supported_suffixes=sorted(supported_suffixes()),
+            cleaning_options=cleaning_flag_to_string(self.config.cleaning_options),
+            default_stopwords_enabled=self.config.default_stopwords_enabled,
+            default_stopwords_count=len(default_stopwords),
+            auto_stopwords_enabled=self.config.auto_stopwords_enabled,
+            streaming_mode=self.config.streaming_mode,
+            manual_stopwords=sorted(manual_cli_stopwords | manual_file_stopwords),
+            manual_stopwords_files=sorted(str(path) for path in self.config.manual_stopwords_files),
+            auto_stopwords=sorted(auto_stopwords),
+            total_candidate_files=len(files),
+            processed_documents=len(documents),
+            skipped_documents=len(skipped),
+            documents=documents,
+            skipped=skipped,
+        )
+
+    @staticmethod
+    def _build_documents_from_metadata(
+        processed_items: list[_ProcessedDocumentMetadata],
+        stopwords: set[str],
+    ) -> list[IngestedDocument]:
+        """Build document output payload from token lists.
+
+        Args:
+            processed_items (list[_ProcessedDocumentMetadata]): Processed metadata with raw tokens.
+            stopwords (set[str]): Effective stopwords set.
+
+        Returns:
+            list[IngestedDocument]: Final document payload items.
+
+        """
         documents: list[IngestedDocument] = []
         for item in processed_items:
             filtered_tokens = [token for token in item.tokens if token.lower() not in stopwords]
@@ -169,24 +247,43 @@ class IngestionPipeline:
                     clean_text_preview=item.clean_text_preview,
                 ),
             )
+        return documents
 
-        return IngestionRunResult(
-            input_path=str(self.config.input_path),
-            recursive=self.config.recursive,
-            supported_suffixes=sorted(supported_suffixes()),
-            cleaning_options=cleaning_flag_to_string(self.config.cleaning_options),
-            default_stopwords_enabled=self.config.default_stopwords_enabled,
-            default_stopwords_count=len(default_stopwords),
-            auto_stopwords_enabled=self.config.auto_stopwords_enabled,
-            manual_stopwords=sorted(manual_cli_stopwords | manual_file_stopwords),
-            manual_stopwords_files=sorted(str(path) for path in self.config.manual_stopwords_files),
-            auto_stopwords=sorted(auto_stopwords),
-            total_candidate_files=len(files),
-            processed_documents=len(documents),
-            skipped_documents=len(skipped),
-            documents=documents,
-            skipped=skipped,
-        )
+    @staticmethod
+    def _build_documents_from_stats(
+        processed_items: list[_ProcessedDocumentStats],
+        stopwords: set[str],
+    ) -> list[IngestedDocument]:
+        """Build document output payload from compact token-frequency maps.
+
+        Args:
+            processed_items (list[_ProcessedDocumentStats]): Processed metadata with token frequencies.
+            stopwords (set[str]): Effective stopwords set.
+
+        Returns:
+            list[IngestedDocument]: Final document payload items.
+
+        """
+        documents: list[IngestedDocument] = []
+        for item in processed_items:
+            removed_count = sum(
+                count for token, count in item.token_frequencies.items() if token.lower() in stopwords
+            )
+            doc_id = _document_id_for_path(item.path)
+
+            documents.append(
+                IngestedDocument(
+                    document_id=doc_id,
+                    path=str(item.path),
+                    extension=item.path.suffix.lower(),
+                    raw_length=item.raw_length,
+                    clean_length=item.clean_length,
+                    token_count=item.token_count - removed_count,
+                    removed_stopword_count=removed_count,
+                    clean_text_preview=item.clean_text_preview,
+                ),
+            )
+        return documents
 
     def _collect_processed_items(
         self,
@@ -231,6 +328,62 @@ class IngestionPipeline:
 
         return tokenized_documents, processed_items, skipped
 
+    def _collect_processed_stats(
+        self,
+        files: list[Path],
+    ) -> tuple[list[_ProcessedDocumentStats], list[SkippedDocument], _CorpusTokenStats]:
+        """Extract and tokenize candidate files with compact corpus statistics.
+
+        Args:
+            files (list[Path]): Candidate files.
+
+        Returns:
+            tuple[list[_ProcessedDocumentStats], list[SkippedDocument], _CorpusTokenStats]:
+                Processed compact document stats, skipped items, and corpus aggregates.
+
+        """
+        processed_items: list[_ProcessedDocumentStats] = []
+        skipped: list[SkippedDocument] = []
+        document_frequency: Counter[str] = Counter()
+        collection_frequency: Counter[str] = Counter()
+        total_tokens = 0
+
+        for file_path in files:
+            try:
+                raw_text = extract_text(file_path)
+            except Exception as exc:
+                skipped.append(SkippedDocument(path=str(file_path), reason=str(exc)))
+                continue
+
+            cleaned_text = apply_cleaning_options(
+                raw_text,
+                options=self.config.cleaning_options,
+            )
+            tokens = tokenize_for_ingestion(cleaned_text)
+            token_counter = Counter(tokens)
+            document_frequency.update(set(tokens))
+            collection_frequency.update(tokens)
+            total_tokens += len(tokens)
+
+            processed_items.append(
+                _ProcessedDocumentStats(
+                    path=file_path,
+                    raw_length=len(raw_text),
+                    clean_length=len(cleaned_text),
+                    clean_text_preview=cleaned_text[:200],
+                    token_count=len(tokens),
+                    token_frequencies=dict(token_counter),
+                ),
+            )
+
+        corpus_stats = _CorpusTokenStats(
+            document_frequency=dict(document_frequency),
+            collection_frequency=dict(collection_frequency),
+            total_docs=len(processed_items),
+            total_tokens=total_tokens,
+        )
+        return processed_items, skipped, corpus_stats
+
     def _build_stopwords(
         self,
         tokenized_documents: list[list[str]],
@@ -249,6 +402,48 @@ class IngestionPipeline:
         if self.config.auto_stopwords_enabled:
             auto_stopwords = discover_auto_stopwords(
                 tokenized_documents,
+                min_doc_ratio=self.config.auto_stopwords_min_doc_ratio,
+                min_corpus_ratio=self.config.auto_stopwords_min_corpus_ratio,
+                max_terms=self.config.auto_stopwords_max_terms,
+            )
+
+        manual_file_stopwords = load_stopwords_from_files(self.config.manual_stopwords_files)
+        manual_cli_stopwords = {
+            normalize_french_accents(word.strip().lower())
+            for word in self.config.manual_stopwords
+            if word.strip()
+        }
+        default_stopwords = get_default_stopwords() if self.config.default_stopwords_enabled else set()
+        merged_stopwords = default_stopwords | manual_cli_stopwords | manual_file_stopwords | auto_stopwords
+        return (
+            auto_stopwords,
+            manual_cli_stopwords,
+            manual_file_stopwords,
+            default_stopwords,
+            merged_stopwords,
+        )
+
+    def _build_stopwords_from_stats(
+        self,
+        corpus_stats: _CorpusTokenStats,
+    ) -> tuple[set[str], set[str], set[str], set[str], set[str]]:
+        """Build stopwords using precomputed corpus frequencies.
+
+        Args:
+            corpus_stats (_CorpusTokenStats): Aggregated corpus token stats.
+
+        Returns:
+            tuple[set[str], set[str], set[str], set[str], set[str]]:
+                `(auto_stopwords, manual_cli_stopwords, manual_file_stopwords, default_stopwords, merged_stopwords)`.
+
+        """
+        auto_stopwords: set[str] = set()
+        if self.config.auto_stopwords_enabled:
+            auto_stopwords = discover_auto_stopwords_from_frequencies(
+                document_frequency=corpus_stats.document_frequency,
+                collection_frequency=corpus_stats.collection_frequency,
+                total_docs=corpus_stats.total_docs,
+                total_tokens=corpus_stats.total_tokens,
                 min_doc_ratio=self.config.auto_stopwords_min_doc_ratio,
                 min_corpus_ratio=self.config.auto_stopwords_min_corpus_ratio,
                 max_terms=self.config.auto_stopwords_max_terms,

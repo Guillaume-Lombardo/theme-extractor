@@ -6,6 +6,7 @@ from theme_extractor.domain import CleaningOptionFlag
 from theme_extractor.ingestion.cleaning import (
     apply_cleaning_options,
     discover_auto_stopwords,
+    discover_auto_stopwords_from_frequencies,
     get_default_stopwords,
     load_stopwords_from_file,
     normalize_french_accents,
@@ -38,6 +39,19 @@ def test_tokenize_for_ingestion_lowercases_words() -> None:
 def test_discover_auto_stopwords_from_doc_ratio() -> None:
     docs = [["alpha", "beta"], ["alpha", "gamma"], ["alpha", "delta"]]
     auto = discover_auto_stopwords(docs, min_doc_ratio=1.0, min_corpus_ratio=0.1, max_terms=10)
+    assert auto == {"alpha"}
+
+
+def test_discover_auto_stopwords_from_frequencies_matches_thresholds() -> None:
+    auto = discover_auto_stopwords_from_frequencies(
+        document_frequency={"alpha": 3, "beta": 2, "z": 3},
+        collection_frequency={"alpha": 6, "beta": 2, "z": 3},
+        total_docs=3,
+        total_tokens=11,
+        min_doc_ratio=1.0,
+        min_corpus_ratio=0.2,
+        max_terms=10,
+    )
     assert auto == {"alpha"}
 
 

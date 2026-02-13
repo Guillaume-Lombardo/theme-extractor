@@ -395,6 +395,9 @@ Ingestion stopwords notes:
   - `--manual-stopwords-file config/stopwords.csv`
 - Auto stopwords use both document coverage and corpus frequency:
   - `--auto-stopwords --auto-stopwords-min-doc-ratio 0.7 --auto-stopwords-min-corpus-ratio 0.01`
+- Large corpus memory guard:
+  - compact mode is enabled by default (`--streaming-mode`)
+  - disable only for debugging/comparison (`--no-streaming-mode`)
 
 Important note for `significant_terms` and `significant_text`:
 

@@ -5,6 +5,7 @@ from theme_extractor.ingestion import IngestionConfig, run_ingestion
 
 _EXPECTED_TOKEN_COUNT = 2
 _EXPECTED_TOKEN_COUNT_WITH_FILE_STOPWORD = 2
+_EXPECTED_REMOVED_STOPWORDS = 2
 
 
 def test_run_ingestion_emits_compact_document_metadata(tmp_path) -> None:
@@ -29,6 +30,7 @@ def test_run_ingestion_emits_compact_document_metadata(tmp_path) -> None:
     assert doc.clean_text_preview == text
     assert doc.removed_stopword_count == 1
     assert doc.token_count == _EXPECTED_TOKEN_COUNT
+    assert result.streaming_mode is True
 
 
 def test_run_ingestion_loads_manual_stopwords_from_file(tmp_path) -> None:
@@ -52,3 +54,23 @@ def test_run_ingestion_loads_manual_stopwords_from_file(tmp_path) -> None:
     assert doc.removed_stopword_count == 1
     assert result.manual_stopwords == ["beta"]
     assert result.manual_stopwords_files == [str(stopwords_file)]
+
+
+def test_run_ingestion_non_streaming_mode_keeps_same_counts(tmp_path) -> None:
+    sample = tmp_path / "sample.txt"
+    sample.write_text("alpha alpha beta", encoding="utf-8")
+
+    result = run_ingestion(
+        IngestionConfig(
+            input_path=sample,
+            cleaning_options=CleaningOptionFlag.NONE,
+            manual_stopwords={"alpha"},
+            default_stopwords_enabled=False,
+            streaming_mode=False,
+        ),
+    )
+
+    assert result.streaming_mode is False
+    doc = result.documents[0]
+    assert doc.token_count == 1
+    assert doc.removed_stopword_count == _EXPECTED_REMOVED_STOPWORDS
