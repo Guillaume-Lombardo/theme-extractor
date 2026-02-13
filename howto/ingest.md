@@ -2,6 +2,7 @@
 
 ## Goal
 Create a normalized ingestion JSON payload from local files.
+This command does not index documents into Elasticsearch/OpenSearch.
 
 ## Minimal Run
 
@@ -34,13 +35,13 @@ uv run theme-extractor ingest \
   --output data/out/ingest.json
 ```
 
-Create your stopwords file yourself (YAML/CSV/TXT), then pass its path with `--manual-stopwords-file`.
+Create your stopwords file yourself (YAML/JSON/CSV/TXT), then pass its path with `--manual-stopwords-file`.
 
 ## Important Options
 
 - `--cleaning-options`: choose cleaning steps (`none`, `all`, `accent_normalization`, `token_cleanup`, etc.).
 - `--manual-stopwords`: inline comma-separated stopwords.
-- `--manual-stopwords-file`: extra stopwords from YAML/CSV/TXT.
+- `--manual-stopwords-file`: extra stopwords from YAML/JSON/CSV/TXT.
 - `--auto-stopwords*`: corpus-driven stopwords generation.
 - `--pdf-ocr-fallback`: OCR fallback for scanned PDFs when embedded text is too low.
 - `--pdf-ocr-languages`: OCR language codes (default `fra+eng`).

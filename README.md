@@ -31,6 +31,14 @@ Prerequisite: start one backend first (local Docker guide: [`/howto/docker-local
 uv sync --group elasticsearch
 uv run theme-extractor doctor --output data/out/doctor.json
 uv run theme-extractor ingest --input data/raw --output data/out/ingest.json
+uv run python docker/index_corpus.py \
+  --input data/raw \
+  --backend-url http://localhost:9200 \
+  --index theme_extractor \
+  --cleaning-options all \
+  --default-stopwords \
+  --manual-stopwords "de,le,la,the,and,of" \
+  --reset-index
 uv run theme-extractor benchmark \
   --methods baseline_tfidf,terms,significant_terms,keybert,bertopic \
   --backend elasticsearch \
@@ -45,6 +53,8 @@ uv run theme-extractor report \
   --input data/out/benchmark.json \
   --output data/out/report_benchmark.md
 ```
+
+`ingest` generates a local JSON QA payload; extraction methods query backend indexes. Use `docker/index_corpus.py` to index cleaned/filtered text into Elasticsearch/OpenSearch.
 
 Run `significant_text` separately with `--agg-field content` (see [`/howto/benchmark.md`](howto/benchmark.md)).
 

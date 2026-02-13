@@ -39,7 +39,7 @@ class IngestionConfig(BaseModel):
         recursive (bool): Whether to recurse in input directories.
         cleaning_options (CleaningOptionFlag): Cleaning options bit flag.
         manual_stopwords (set[str]): Inline stopwords provided from CLI.
-        manual_stopwords_files (list[Path]): Stopwords files (`yaml/csv/txt`) to load.
+        manual_stopwords_files (list[Path]): Stopwords files (`yaml/json/csv/txt`) to load.
         default_stopwords_enabled (bool): Enable default FR/EN stopwords.
         auto_stopwords_enabled (bool): Enable corpus-derived stopwords.
         auto_stopwords_min_doc_ratio (float): Minimum document coverage ratio.

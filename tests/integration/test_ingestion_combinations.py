@@ -67,6 +67,28 @@ def test_ingest_manual_stopwords_from_csv_file(tmp_path, capsys) -> None:
     assert payload["manual_stopwords_files"] == [str(csv_file.resolve())]
 
 
+def test_ingest_manual_stopwords_from_json_file(tmp_path, capsys) -> None:
+    doc = tmp_path / "a.txt"
+    json_file = tmp_path / "stopwords.json"
+    doc.write_text("facture copropriete copropriete alpha", encoding="utf-8")
+    json_file.write_text('{"stopwords": ["copropriété"]}', encoding="utf-8")
+
+    exit_code = main(
+        [
+            "ingest",
+            "--input",
+            str(doc),
+            "--manual-stopwords-file",
+            str(json_file),
+            "--no-default-stopwords",
+        ],
+    )
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["manual_stopwords"] == ["copropriete"]
+    assert payload["manual_stopwords_files"] == [str(json_file.resolve())]
+
+
 def test_ingest_cleaning_options_are_applied(tmp_path, capsys) -> None:
     doc = tmp_path / "index.html"
     doc.write_text("<html><body>Résumé https://example.com Contact: x@y.z</body></html>", encoding="utf-8")

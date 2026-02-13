@@ -367,11 +367,11 @@ def _normalize_stopword(value: str) -> str:
     return normalize_french_accents(value.strip().lower())
 
 
-def _extract_stopwords_from_yaml_data(data: object) -> set[str]:
-    """Extract stopwords from parsed YAML object.
+def _extract_stopwords_from_structured_data(data: object) -> set[str]:
+    """Extract stopwords from one parsed structured object.
 
     Args:
-        data (object): Parsed YAML object.
+        data (object): Parsed structured object (YAML/JSON).
 
     Returns:
         set[str]: Extracted stopwords.
@@ -400,7 +400,7 @@ def _extract_stopwords_from_yaml_data(data: object) -> set[str]:
             }
         values: set[str] = set()
         for value in dict_data.values():
-            values |= _extract_stopwords_from_yaml_data(value)
+            values |= _extract_stopwords_from_structured_data(value)
         return values
 
     return set()
@@ -420,7 +420,7 @@ def _load_yaml_stopwords(path: Path) -> set[str]:
     try:
         from yaml import safe_load  # noqa: PLC0415
 
-        return _extract_stopwords_from_yaml_data(safe_load(text))
+        return _extract_stopwords_from_structured_data(safe_load(text))
     except Exception:
         # Fallback parser for simple "- word" YAML lists.
         stopwords: set[str] = set()
@@ -433,6 +433,26 @@ def _load_yaml_stopwords(path: Path) -> set[str]:
                 if candidate:
                     stopwords.add(candidate)
         return stopwords
+
+
+def _load_json_stopwords(path: Path) -> set[str]:
+    """Load stopwords from JSON file.
+
+    Supported JSON shapes:
+    - one string
+    - one list of strings
+    - one dict with `stopwords` key
+    - nested objects containing string lists
+
+    Args:
+        path (Path): JSON file path.
+
+    Returns:
+        set[str]: Loaded stopwords.
+
+    """
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return _extract_stopwords_from_structured_data(data)
 
 
 def _load_csv_stopwords(path: Path) -> set[str]:
@@ -477,7 +497,7 @@ def _load_csv_stopwords(path: Path) -> set[str]:
 def load_stopwords_from_file(path: Path) -> set[str]:
     """Load stopwords from one file path.
 
-    Supported formats are `.yaml`/`.yml`, `.csv`, and plain text.
+    Supported formats are `.yaml`/`.yml`, `.json`, `.csv`, and plain text.
 
     Args:
         path (Path): Input stopwords file path.
@@ -489,6 +509,8 @@ def load_stopwords_from_file(path: Path) -> set[str]:
     suffix = path.suffix.lower()
     if suffix in {".yaml", ".yml"}:
         return _load_yaml_stopwords(path)
+    if suffix == ".json":
+        return _load_json_stopwords(path)
     if suffix == ".csv":
         return _load_csv_stopwords(path)
 
