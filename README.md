@@ -107,6 +107,7 @@ Important variable groups:
 
 - backend/runtime (`THEME_EXTRACTOR_BACKEND*`, `THEME_EXTRACTOR_PROXY_URL`)
 - ingestion stopwords (`THEME_EXTRACTOR_DEFAULT_STOPWORDS_ENABLED`, `THEME_EXTRACTOR_AUTO_STOPWORDS_*`)
+- PDF OCR fallback (`THEME_EXTRACTOR_PDF_OCR_*`) for scanned PDFs
 - local model resolution (`THEME_EXTRACTOR_LOCAL_MODELS_DIR`)
 - BERTopic embedding cache (`THEME_EXTRACTOR_BERTOPIC_EMBEDDING_CACHE_*`)
 

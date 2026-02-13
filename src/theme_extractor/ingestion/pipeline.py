@@ -18,7 +18,7 @@ from theme_extractor.ingestion.cleaning import (
     normalize_french_accents,
     tokenize_for_ingestion,
 )
-from theme_extractor.ingestion.extractors import extract_text, supported_suffixes
+from theme_extractor.ingestion.extractors import PdfOcrOptions, extract_text, supported_suffixes
 
 
 class IngestionConfig(BaseModel):
@@ -36,6 +36,11 @@ class IngestionConfig(BaseModel):
         auto_stopwords_min_corpus_ratio (float): Minimum corpus frequency ratio.
         auto_stopwords_max_terms (int): Maximum count of auto stopwords.
         streaming_mode (bool): Enable compact token-frequency aggregation mode.
+        pdf_ocr_fallback (bool): Enable OCR fallback for low-text PDF pages.
+        pdf_ocr_languages (str): OCR language codes for PDF fallback.
+        pdf_ocr_dpi (int): OCR rendering DPI for PDF fallback.
+        pdf_ocr_min_chars (int): Minimum alphanumeric chars before skipping OCR fallback.
+        pdf_ocr_tessdata (str | None): Optional tessdata directory path.
 
     """
 
@@ -50,6 +55,11 @@ class IngestionConfig(BaseModel):
     auto_stopwords_min_corpus_ratio: float = 0.01
     auto_stopwords_max_terms: int = 200
     streaming_mode: bool = True
+    pdf_ocr_fallback: bool = False
+    pdf_ocr_languages: str = "fra+eng"
+    pdf_ocr_dpi: int = 200
+    pdf_ocr_min_chars: int = 32
+    pdf_ocr_tessdata: str | None = None
 
 
 class IngestedDocument(BaseModel):
@@ -85,6 +95,11 @@ class IngestionRunResult(BaseModel):
         default_stopwords_count (int): Number of default stopwords loaded.
         auto_stopwords_enabled (bool): Whether auto stopwords were enabled.
         streaming_mode (bool): Whether compact streaming mode was enabled.
+        pdf_ocr_fallback (bool): Whether OCR fallback for PDF pages was enabled.
+        pdf_ocr_languages (str): OCR languages configured for PDF fallback.
+        pdf_ocr_dpi (int): OCR DPI configured for PDF fallback.
+        pdf_ocr_min_chars (int): OCR minimum text threshold for PDF fallback.
+        pdf_ocr_tessdata (str | None): Optional tessdata directory path for OCR fallback.
         manual_stopwords (list[str]): Effective manual stopwords (CLI + files).
         manual_stopwords_files (list[str]): Manual stopwords file paths.
         auto_stopwords (list[str]): Auto-generated stopwords.
@@ -105,6 +120,11 @@ class IngestionRunResult(BaseModel):
     default_stopwords_count: int
     auto_stopwords_enabled: bool
     streaming_mode: bool
+    pdf_ocr_fallback: bool
+    pdf_ocr_languages: str
+    pdf_ocr_dpi: int
+    pdf_ocr_min_chars: int
+    pdf_ocr_tessdata: str | None
     manual_stopwords: list[str]
     manual_stopwords_files: list[str]
     auto_stopwords: list[str]
@@ -163,6 +183,21 @@ class IngestionPipeline:
         """
         self.config = config
 
+    def _pdf_ocr_options(self) -> PdfOcrOptions:
+        """Build PDF OCR options from ingestion configuration.
+
+        Returns:
+            PdfOcrOptions: PDF OCR options object.
+
+        """
+        return PdfOcrOptions(
+            fallback_enabled=self.config.pdf_ocr_fallback,
+            languages=self.config.pdf_ocr_languages,
+            dpi=self.config.pdf_ocr_dpi,
+            min_chars=self.config.pdf_ocr_min_chars,
+            tessdata=self.config.pdf_ocr_tessdata,
+        )
+
     def run(self) -> IngestionRunResult:
         """Execute ingestion pipeline.
 
@@ -204,6 +239,11 @@ class IngestionPipeline:
             default_stopwords_count=len(default_stopwords),
             auto_stopwords_enabled=self.config.auto_stopwords_enabled,
             streaming_mode=self.config.streaming_mode,
+            pdf_ocr_fallback=self.config.pdf_ocr_fallback,
+            pdf_ocr_languages=self.config.pdf_ocr_languages,
+            pdf_ocr_dpi=self.config.pdf_ocr_dpi,
+            pdf_ocr_min_chars=self.config.pdf_ocr_min_chars,
+            pdf_ocr_tessdata=self.config.pdf_ocr_tessdata,
             manual_stopwords=sorted(manual_cli_stopwords | manual_file_stopwords),
             manual_stopwords_files=sorted(str(path) for path in self.config.manual_stopwords_files),
             auto_stopwords=sorted(auto_stopwords),
@@ -302,10 +342,14 @@ class IngestionPipeline:
         tokenized_documents: list[list[str]] = []
         processed_items: list[_ProcessedDocumentMetadata] = []
         skipped: list[SkippedDocument] = []
+        pdf_ocr_options = self._pdf_ocr_options()
 
         for file_path in files:
             try:
-                raw_text = extract_text(file_path)
+                raw_text = extract_text(
+                    file_path,
+                    pdf_ocr=pdf_ocr_options,
+                )
             except Exception as exc:
                 skipped.append(SkippedDocument(path=str(file_path), reason=str(exc)))
                 continue
@@ -347,10 +391,14 @@ class IngestionPipeline:
         document_frequency: Counter[str] = Counter()
         collection_frequency: Counter[str] = Counter()
         total_tokens = 0
+        pdf_ocr_options = self._pdf_ocr_options()
 
         for file_path in files:
             try:
-                raw_text = extract_text(file_path)
+                raw_text = extract_text(
+                    file_path,
+                    pdf_ocr=pdf_ocr_options,
+                )
             except Exception as exc:
                 skipped.append(SkippedDocument(path=str(file_path), reason=str(exc)))
                 continue

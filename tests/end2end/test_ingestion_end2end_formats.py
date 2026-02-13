@@ -14,6 +14,21 @@ class _PdfPage:
         return "synthetic pdf text"
 
 
+class _PdfScannedPage:
+    @staticmethod
+    def get_text(*args, **kwargs) -> str:  # noqa: ANN002, ANN003
+        if "textpage" in kwargs or (args and args[0] == "text"):
+            return "ocr synthetic text"
+        return ""
+
+    @staticmethod
+    def get_textpage_ocr(*, language: str, dpi: int, tessdata: str | None = None) -> object:
+        _ = language
+        _ = dpi
+        _ = tessdata
+        return object()
+
+
 class _PdfDoc:
     def __init__(self, _path: str):
         self._pages = [_PdfPage()]
@@ -56,6 +71,19 @@ class _Message:
 def _import_module_pdf(name: str) -> object:
     if name == "pymupdf":
         return SimpleNamespace(Document=_PdfDoc)
+    raise ImportError(name)
+
+
+def _import_module_pdf_scanned(name: str) -> object:
+    class _PdfScannedDoc:
+        def __init__(self, _path: str):
+            self._pages = [_PdfScannedPage()]
+
+        def __iter__(self) -> object:
+            return iter(self._pages)
+
+    if name == "pymupdf":
+        return SimpleNamespace(Document=_PdfScannedDoc)
     raise ImportError(name)
 
 
@@ -106,6 +134,35 @@ def test_ingest_end2end_optional_format_with_stubbed_pdf_parser(tmp_path, monkey
 
     exit_code = main(["ingest", "--input", str(pdf)])
     assert exit_code == 0
+
+
+def test_ingest_end2end_pdf_ocr_fallback_with_stubbed_parser(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(extractors, "import_module", _import_module_pdf_scanned)
+
+    pdf = tmp_path / "scan.pdf"
+    pdf.write_text("placeholder", encoding="utf-8")
+    out = tmp_path / "ocr.json"
+
+    exit_code = main(
+        [
+            "ingest",
+            "--input",
+            str(pdf),
+            "--pdf-ocr-fallback",
+            "--pdf-ocr-languages",
+            "fra+eng",
+            "--pdf-ocr-dpi",
+            "300",
+            "--output",
+            str(out),
+        ],
+    )
+    assert exit_code == 0
+
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert payload["pdf_ocr_fallback"] is True
+    assert payload["processed_documents"] == 1
+    assert payload["documents"][0]["token_count"] > 0
 
 
 def test_ingest_end2end_optional_formats_with_stubs(tmp_path, monkeypatch) -> None:

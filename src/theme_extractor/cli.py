@@ -602,6 +602,34 @@ def _build_ingest_parser(subparsers: argparse._SubParsersAction[argparse.Argumen
             "full token lists to reduce memory usage on large corpora."
         ),
     )
+    ingest_parser.add_argument(
+        "--pdf-ocr-fallback",
+        default=_env_bool("THEME_EXTRACTOR_PDF_OCR_FALLBACK_ENABLED", default_value=False),
+        action=argparse.BooleanOptionalAction,
+        help=("Enable OCR fallback for PDF pages with little or no embedded text (useful for scanned PDFs)."),
+    )
+    ingest_parser.add_argument(
+        "--pdf-ocr-languages",
+        default=os.getenv("THEME_EXTRACTOR_PDF_OCR_LANGUAGES", "fra+eng"),
+        help="OCR language codes used when PDF OCR fallback is enabled.",
+    )
+    ingest_parser.add_argument(
+        "--pdf-ocr-dpi",
+        default=int(os.getenv("THEME_EXTRACTOR_PDF_OCR_DPI", "200")),
+        type=int,
+        help="OCR rendering DPI for PDF OCR fallback.",
+    )
+    ingest_parser.add_argument(
+        "--pdf-ocr-min-chars",
+        default=int(os.getenv("THEME_EXTRACTOR_PDF_OCR_MIN_CHARS", "32")),
+        type=int,
+        help="Minimum alphanumeric characters required before skipping PDF OCR fallback.",
+    )
+    ingest_parser.add_argument(
+        "--pdf-ocr-tessdata",
+        default=os.getenv("THEME_EXTRACTOR_PDF_OCR_TESSDATA", None),
+        help="Optional tessdata directory path for OCR runtime.",
+    )
     _add_shared_runtime_flags(ingest_parser)
     _add_output_flag(ingest_parser)
     ingest_parser.set_defaults(handler=_handle_ingest)
@@ -933,6 +961,11 @@ def _handle_ingest(args: argparse.Namespace) -> dict[str, Any]:
         auto_stopwords_min_corpus_ratio=float(args.auto_stopwords_min_corpus_ratio),
         auto_stopwords_max_terms=int(args.auto_stopwords_max_terms),
         streaming_mode=bool(args.streaming_mode),
+        pdf_ocr_fallback=bool(args.pdf_ocr_fallback),
+        pdf_ocr_languages=str(args.pdf_ocr_languages),
+        pdf_ocr_dpi=int(args.pdf_ocr_dpi),
+        pdf_ocr_min_chars=int(args.pdf_ocr_min_chars),
+        pdf_ocr_tessdata=None if args.pdf_ocr_tessdata in {None, ""} else str(args.pdf_ocr_tessdata),
     )
     result = run_ingestion(config)
     payload = result.model_dump(mode="json")
