@@ -137,6 +137,9 @@ Ingestion-related env vars available in `.env.template`:
 - `THEME_EXTRACTOR_AUTO_STOPWORDS_MIN_CORPUS_RATIO`
 - `THEME_EXTRACTOR_AUTO_STOPWORDS_MAX_TERMS`
 - `THEME_EXTRACTOR_PROXY_URL` (optional runtime proxy default for CLI commands)
+- `THEME_EXTRACTOR_BERTOPIC_EMBEDDING_CACHE_ENABLED`
+- `THEME_EXTRACTOR_BERTOPIC_EMBEDDING_CACHE_DIR`
+- `THEME_EXTRACTOR_BERTOPIC_EMBEDDING_CACHE_VERSION`
 
 ### 1) Put Sample Documents In `data/raw/`
 
@@ -292,6 +295,9 @@ uv run theme-extractor extract \
   --query "match_all" \
   --bertopic-use-embeddings \
   --bertopic-embedding-model bge-m3 \
+  --bertopic-embedding-cache-enabled \
+  --bertopic-embedding-cache-dir data/cache/embeddings \
+  --bertopic-embedding-cache-version v1 \
   --bertopic-dim-reduction svd \
   --bertopic-clustering kmeans \
   --bertopic-nr-topics 8 \
@@ -346,6 +352,10 @@ Notes:
 - `--bertopic-dim-reduction` supports `none`, `svd`, `nmf`, and `umap`.
 - Convenience behavior: if you pass `--bertopic-embedding-model bge-m3` and `data/models/bge-m3` exists, the local path is used automatically.
 - You can override the local alias directory with `--bertopic-local-models-dir` or `THEME_EXTRACTOR_LOCAL_MODELS_DIR`.
+- BERTopic embedding cache is deterministic and versioned. You can tune:
+  - `--bertopic-embedding-cache-enabled/--no-bertopic-embedding-cache-enabled`
+  - `--bertopic-embedding-cache-dir`
+  - `--bertopic-embedding-cache-version`
 - For strict offline runs, preload all optional models/dependencies before execution.
 
 LLM strategy (strict offline fallback by default):

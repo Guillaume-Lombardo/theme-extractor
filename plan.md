@@ -91,7 +91,7 @@ Create a production-grade toolkit to compare topic extraction strategies on hete
   - richer `.msg` support (metadata and attachment text extraction policy)
 - [ ] Improve performance/scalability:
   - [x] streaming mode for large corpora (avoid retaining full text payloads)
-  - optional embedding cache with deterministic keys/versioning
+  - [x] optional embedding cache with deterministic keys/versioning
 
 ### Phase 7 - Rationalize documentation
 - [ ] Make the README clearer for external users.

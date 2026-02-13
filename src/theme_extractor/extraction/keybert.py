@@ -207,7 +207,7 @@ def _extract_keywords_with_keybert(
         if isinstance(item, tuple) and len(item) >= _KEYWORD_TERM_AND_SCORE_LENGTH:
             term = item[0]
             score_raw = item[1]
-            if isinstance(term, str) and isinstance(score_raw, int | float):
+            if isinstance(term, str) and isinstance(score_raw, (int, float)):
                 normalized_keywords.append((term, float(score_raw)))
     return normalized_keywords
 

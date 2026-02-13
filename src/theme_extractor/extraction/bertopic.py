@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from contextlib import suppress
 from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -25,6 +26,11 @@ from theme_extractor.domain import (
     UnifiedExtractionOutput,
 )
 from theme_extractor.extraction.baselines import BaselineExtractionConfig  # noqa: TC001
+from theme_extractor.extraction.embedding_cache import (
+    build_embedding_cache_key,
+    load_embeddings_from_cache,
+    store_embeddings_in_cache,
+)
 from theme_extractor.extraction.utils import resolve_embedding_model_name
 
 if TYPE_CHECKING:
@@ -47,7 +53,9 @@ _EMBEDDINGS_RUNTIME_FALLBACK_NOTE = "Embedding runtime failed; BERTopic fell bac
 _SEARCH_SIZE_LIMIT = 1000
 _SEARCH_SIZE_LIMIT_NOTE = f"BERTopic search_size was capped to {_SEARCH_SIZE_LIMIT} to limit memory usage."
 _DEFAULT_LOCAL_MODELS_DIR = Path("data/models")
+_DEFAULT_EMBEDDING_CACHE_DIR = Path("data/cache/embeddings")
 _NO_TOPICS_AFTER_FILTER_NOTE = "BERTopic produced no topics after min_topic_size/topic filtering."
+_EMBEDDING_CACHE_HIT_NOTE = "BERTopic embeddings loaded from local cache."
 
 
 class BertopicExtractionConfig(BaseModel):
@@ -62,6 +70,9 @@ class BertopicExtractionConfig(BaseModel):
         min_topic_size (int): Minimum accepted topic size.
         seed (int): Random seed.
         local_models_dir (Path | None): Local directory used to resolve embedding model aliases.
+        embedding_cache_enabled (bool): Enable local embedding cache.
+        embedding_cache_dir (Path): Local cache directory for embeddings.
+        embedding_cache_version (str): Cache namespace version.
 
     """
 
@@ -75,6 +86,9 @@ class BertopicExtractionConfig(BaseModel):
     min_topic_size: int = 10
     seed: int = 42
     local_models_dir: Path | None = _DEFAULT_LOCAL_MODELS_DIR
+    embedding_cache_enabled: bool = True
+    embedding_cache_dir: Path = _DEFAULT_EMBEDDING_CACHE_DIR
+    embedding_cache_version: str = "v1"
 
 
 class BertopicRunRequest(BaseModel):
@@ -131,11 +145,14 @@ def _build_tfidf_matrix(documents: list[str]) -> tuple[csr_matrix, NDArray]:
     return sparse_tfidf, feature_names
 
 
-def _make_embeddings_if_enabled(
+def _make_embeddings_if_enabled(  # noqa: PLR0913
     *,
     use_embeddings: bool,
     embedding_model: str,
     local_models_dir: Path | None,
+    embedding_cache_enabled: bool,
+    embedding_cache_dir: Path,
+    embedding_cache_version: str,
     documents: list[str],
 ) -> tuple[NDArray | None, str | None]:
     if not use_embeddings:
@@ -145,10 +162,41 @@ def _make_embeddings_if_enabled(
             embedding_model=embedding_model,
             local_models_dir=local_models_dir,
         )
+        if embedding_cache_enabled:
+            cache_key = build_embedding_cache_key(
+                strategy="bertopic",
+                model_name=resolved_model,
+                cache_version=embedding_cache_version,
+                documents=documents,
+            )
+            try:
+                cached_vectors = load_embeddings_from_cache(
+                    cache_dir=embedding_cache_dir.expanduser(),
+                    cache_key=cache_key,
+                )
+            except Exception:
+                cached_vectors = None
+            if cached_vectors is not None:
+                return cached_vectors, _EMBEDDING_CACHE_HIT_NOTE
+
         sentence_transformers_module = import_module("sentence_transformers")
         sentence_transformer_cls = sentence_transformers_module.SentenceTransformer
         model = sentence_transformer_cls(resolved_model)
         vectors = model.encode(documents, convert_to_numpy=True, normalize_embeddings=True)
+
+        if embedding_cache_enabled:
+            with suppress(Exception):
+                store_embeddings_in_cache(
+                    cache_dir=embedding_cache_dir.expanduser(),
+                    cache_key=cache_key,
+                    vectors=np.asarray(vectors, dtype=np.float32),
+                    metadata={
+                        "strategy": "bertopic",
+                        "model_name": resolved_model,
+                        "cache_version": embedding_cache_version,
+                        "document_count": len(documents),
+                    },
+                )
     except ImportError:
         return None, _EMBEDDINGS_FALLBACK_NOTE
     except Exception as exc:
@@ -389,6 +437,9 @@ def _compute_clustering_inputs(
         use_embeddings=request.bertopic_config.use_embeddings,
         embedding_model=request.bertopic_config.embedding_model,
         local_models_dir=request.bertopic_config.local_models_dir,
+        embedding_cache_enabled=request.bertopic_config.embedding_cache_enabled,
+        embedding_cache_dir=request.bertopic_config.embedding_cache_dir,
+        embedding_cache_version=request.bertopic_config.embedding_cache_version,
         documents=documents,
     )
     if embedding_note:
