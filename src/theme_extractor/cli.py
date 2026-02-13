@@ -553,7 +553,7 @@ def _build_ingest_parser(subparsers: argparse._SubParsersAction[argparse.Argumen
         "--manual-stopwords-file",
         action="append",
         default=[],
-        help="Path to a YAML/CSV/text file containing extra manual stopwords. Can be repeated.",
+        help="Path to a YAML/JSON/CSV/text file containing extra manual stopwords. Can be repeated.",
     )
     ingest_parser.add_argument(
         "--default-stopwords",

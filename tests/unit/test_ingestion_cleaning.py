@@ -125,6 +125,12 @@ def test_load_stopwords_from_csv_file(tmp_path) -> None:
     assert load_stopwords_from_file(file_path) == {"facture", "copropriete"}
 
 
+def test_load_stopwords_from_json_file(tmp_path) -> None:
+    file_path = tmp_path / "manual-stopwords.json"
+    file_path.write_text('{"stopwords": ["Facture", "copropriété"]}', encoding="utf-8")
+    assert load_stopwords_from_file(file_path) == {"facture", "copropriete"}
+
+
 def test_apply_cleaning_options_combines_flags() -> None:
     text = "<p>Résumé   https://a.b</p>"
     options = (

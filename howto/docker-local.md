@@ -39,6 +39,12 @@ uv run python docker/index_corpus.py \
   --backend-url "${THEME_EXTRACTOR_BACKEND_URL:-http://localhost:9200}" \
   --index "${THEME_EXTRACTOR_INDEX:-theme_extractor}" \
   --cleaning-options all \
+  --default-stopwords \
+  --manual-stopwords "de,le,la,the,and,of" \
+  --auto-stopwords \
+  --auto-stopwords-min-doc-ratio 0.7 \
+  --auto-stopwords-min-corpus-ratio 0.01 \
+  --auto-stopwords-max-terms 200 \
   --reset-index
 ```
 
@@ -58,6 +64,12 @@ uv run python docker/index_corpus.py \
   --backend-url "http://localhost:9201" \
   --index "${THEME_EXTRACTOR_INDEX:-theme_extractor}" \
   --cleaning-options all \
+  --default-stopwords \
+  --manual-stopwords "de,le,la,the,and,of" \
+  --auto-stopwords \
+  --auto-stopwords-min-doc-ratio 0.7 \
+  --auto-stopwords-min-corpus-ratio 0.01 \
+  --auto-stopwords-max-terms 200 \
   --reset-index
 ```
 
