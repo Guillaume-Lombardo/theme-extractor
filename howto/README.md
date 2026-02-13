@@ -6,6 +6,7 @@ This folder contains practical command recipes to run the package end-to-end.
 - `extract.md`: run one extraction strategy and interpret the output.
 - `benchmark.md`: compare multiple strategies and choose a candidate.
 - `report.md`: generate and read markdown reports from JSON outputs.
+- `release.md`: publish package distributions to TestPyPI/PyPI.
 - `docker-local.md`: start/stop local Elasticsearch or OpenSearch stacks.
 - `troubleshooting.md`: common issues and practical fixes.
 
