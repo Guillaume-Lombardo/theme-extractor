@@ -623,7 +623,10 @@ def _build_ingest_parser(subparsers: argparse._SubParsersAction[argparse.Argumen
         "--pdf-ocr-min-chars",
         default=int(os.getenv("THEME_EXTRACTOR_PDF_OCR_MIN_CHARS", "32")),
         type=int,
-        help="Minimum alphanumeric characters required before skipping PDF OCR fallback.",
+        help=(
+            "Minimum alphanumeric characters in embedded text to skip OCR fallback "
+            "(pages with fewer trigger OCR)."
+        ),
     )
     ingest_parser.add_argument(
         "--pdf-ocr-tessdata",

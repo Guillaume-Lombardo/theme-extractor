@@ -43,7 +43,7 @@ Create your stopwords file yourself (YAML/CSV/TXT), then pass its path with `--m
 - `--pdf-ocr-fallback`: OCR fallback for scanned PDFs when embedded text is too low.
 - `--pdf-ocr-languages`: OCR language codes (default `fra+eng`).
 - `--pdf-ocr-dpi`: OCR rendering DPI (default `200`).
-- `--pdf-ocr-min-chars`: minimum alphanumeric page text before OCR fallback is skipped.
+- `--pdf-ocr-min-chars`: minimum alphanumeric characters in embedded text required to skip OCR fallback (pages with fewer characters trigger OCR).
 - `--pdf-ocr-tessdata`: optional tessdata directory path.
 - `--streaming-mode`: compact ingestion mode for large corpora (default enabled).
 
