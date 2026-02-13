@@ -27,7 +27,7 @@ uv run ruff check .
 uv run ty check src tests
 uv run pytest -m unit
 uv run pytest -m integration --no-cov
-uv run pytest -m end2end
+uv run pytest -m end2end --no-cov
 uv run pre-commit run --all-files
 ```
 
