@@ -117,3 +117,10 @@ Important variable groups:
 - [`AGENTS.md`](AGENTS.md): operating rules
 - [`plan.md`](plan.md): phased roadmap
 - [`agent.md`](agent.md): agent charter
+
+## Community Standards
+
+- [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+- [`SECURITY.md`](SECURITY.md)
+- [`SUPPORT.md`](SUPPORT.md)
