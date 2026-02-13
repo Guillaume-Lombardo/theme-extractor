@@ -86,6 +86,14 @@ Detailed operations are intentionally kept in `/howto`:
 - [`/howto/docker-local.md`](howto/docker-local.md): local Docker stacks (Elasticsearch/OpenSearch)
 - [`/howto/troubleshooting.md`](howto/troubleshooting.md): common failures and fixes
 
+Sphinx documentation is available under `/docs` (includes README, how-to pages, and API docstrings).
+
+Build locally:
+
+```bash
+uv run sphinx-build -b html docs docs/_build/html
+```
+
 ## Configuration
 
 Use `.env.template` as bootstrap:

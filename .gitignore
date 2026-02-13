@@ -111,6 +111,7 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/_generated/
 
 # PyBuilder
 .pybuilder/
@@ -232,7 +233,23 @@ pyrightconfig.json
 
 # Custom rules (everything added below won't be overriden by 'Generate .gitignore File' if you use 'Update' option)
 
-data/out/*
-data/raw/*
-data/models/*
-data/cache/*
+# Local IDE metadata
+.idea/
+
+# Local environment files (keep template versioned)
+.env.*
+!.env.template
+
+# Local runtime artifacts
+*.sqlite
+*.sqlite3
+
+# Local project datasets, generated outputs and caches
+data/out/**
+data/raw/**
+data/models/**
+data/cache/**
+!data/out/.gitkeep
+!data/raw/.gitkeep
+!data/models/.gitkeep
+!data/cache/.gitkeep

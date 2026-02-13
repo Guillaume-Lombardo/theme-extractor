@@ -100,7 +100,7 @@ Create a production-grade toolkit to compare topic extraction strategies on hete
   - [x] How to run theme extraction and interpret its report
   - [x] How to run a benchmark and choose the best strategy
   - [x] How to generate a report
-- [ ] Make a Sphinx documentation including docstrings, README, and how-to guides.
+- [x] Make a Sphinx documentation including docstrings, README, and how-to guides.
 
 ## Branch and PR Policy
 - [ ] Execute each run/phase/feature in its own dedicated branch.
