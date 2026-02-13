@@ -85,11 +85,11 @@ Create a production-grade toolkit to compare topic extraction strategies on hete
   - topic coherence proxies
   - inter-topic diversity
   - run-to-run stability (seed sensitivity)
-- [ ] Improve ingestion robustness:
+- [x] Improve ingestion robustness:
   - [x] OCR fallback strategy for scanned PDFs
-  - stronger header/footer detection on multipage docs
-  - richer `.msg` support (metadata and attachment text extraction policy)
-- [ ] Improve performance/scalability:
+  - [x] stronger header/footer detection on multipage docs
+  - [x] richer `.msg` support (metadata and attachment text extraction policy)
+- [x] Improve performance/scalability:
   - [x] streaming mode for large corpora (avoid retaining full text payloads)
   - [x] optional embedding cache with deterministic keys/versioning
 

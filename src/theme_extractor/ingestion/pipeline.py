@@ -8,7 +8,12 @@ from pathlib import Path  # noqa: TC003
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from theme_extractor.domain import CleaningOptionFlag, cleaning_flag_to_string, default_cleaning_options
+from theme_extractor.domain import (
+    CleaningOptionFlag,
+    MsgAttachmentPolicy,
+    cleaning_flag_to_string,
+    default_cleaning_options,
+)
 from theme_extractor.ingestion.cleaning import (
     apply_cleaning_options,
     discover_auto_stopwords,
@@ -18,7 +23,12 @@ from theme_extractor.ingestion.cleaning import (
     normalize_french_accents,
     tokenize_for_ingestion,
 )
-from theme_extractor.ingestion.extractors import PdfOcrOptions, extract_text, supported_suffixes
+from theme_extractor.ingestion.extractors import (
+    MsgExtractionOptions,
+    PdfOcrOptions,
+    extract_text,
+    supported_suffixes,
+)
 
 
 class IngestionConfig(BaseModel):
@@ -41,6 +51,8 @@ class IngestionConfig(BaseModel):
         pdf_ocr_dpi (int): OCR rendering DPI for PDF fallback.
         pdf_ocr_min_chars (int): Minimum alphanumeric chars before skipping OCR fallback.
         pdf_ocr_tessdata (str | None): Optional tessdata directory path.
+        msg_include_metadata (bool): Include standard `.msg` metadata fields in extracted text.
+        msg_attachments_policy (MsgAttachmentPolicy): `.msg` attachment extraction policy.
 
     """
 
@@ -60,6 +72,8 @@ class IngestionConfig(BaseModel):
     pdf_ocr_dpi: int = 200
     pdf_ocr_min_chars: int = 32
     pdf_ocr_tessdata: str | None = None
+    msg_include_metadata: bool = True
+    msg_attachments_policy: MsgAttachmentPolicy = MsgAttachmentPolicy.NAMES
 
 
 class IngestedDocument(BaseModel):
@@ -100,6 +114,8 @@ class IngestionRunResult(BaseModel):
         pdf_ocr_dpi (int): OCR DPI configured for PDF fallback.
         pdf_ocr_min_chars (int): OCR minimum text threshold for PDF fallback.
         pdf_ocr_tessdata (str | None): Optional tessdata directory path for OCR fallback.
+        msg_include_metadata (bool): Whether `.msg` metadata extraction is enabled.
+        msg_attachments_policy (str): `.msg` attachment extraction policy used at runtime.
         manual_stopwords (list[str]): Effective manual stopwords (CLI + files).
         manual_stopwords_files (list[str]): Manual stopwords file paths.
         auto_stopwords (list[str]): Auto-generated stopwords.
@@ -125,6 +141,8 @@ class IngestionRunResult(BaseModel):
     pdf_ocr_dpi: int
     pdf_ocr_min_chars: int
     pdf_ocr_tessdata: str | None
+    msg_include_metadata: bool
+    msg_attachments_policy: str
     manual_stopwords: list[str]
     manual_stopwords_files: list[str]
     auto_stopwords: list[str]
@@ -198,6 +216,18 @@ class IngestionPipeline:
             tessdata=self.config.pdf_ocr_tessdata,
         )
 
+    def _msg_extraction_options(self) -> MsgExtractionOptions:
+        """Build `.msg` extraction options from ingestion configuration.
+
+        Returns:
+            MsgExtractionOptions: `.msg` extraction options object.
+
+        """
+        return MsgExtractionOptions(
+            include_metadata=self.config.msg_include_metadata,
+            attachments_policy=self.config.msg_attachments_policy,
+        )
+
     def run(self) -> IngestionRunResult:
         """Execute ingestion pipeline.
 
@@ -244,6 +274,8 @@ class IngestionPipeline:
             pdf_ocr_dpi=self.config.pdf_ocr_dpi,
             pdf_ocr_min_chars=self.config.pdf_ocr_min_chars,
             pdf_ocr_tessdata=self.config.pdf_ocr_tessdata,
+            msg_include_metadata=self.config.msg_include_metadata,
+            msg_attachments_policy=self.config.msg_attachments_policy.value,
             manual_stopwords=sorted(manual_cli_stopwords | manual_file_stopwords),
             manual_stopwords_files=sorted(str(path) for path in self.config.manual_stopwords_files),
             auto_stopwords=sorted(auto_stopwords),
@@ -343,12 +375,14 @@ class IngestionPipeline:
         processed_items: list[_ProcessedDocumentMetadata] = []
         skipped: list[SkippedDocument] = []
         pdf_ocr_options = self._pdf_ocr_options()
+        msg_options = self._msg_extraction_options()
 
         for file_path in files:
             try:
                 raw_text = extract_text(
                     file_path,
                     pdf_ocr=pdf_ocr_options,
+                    msg_options=msg_options,
                 )
             except Exception as exc:
                 skipped.append(SkippedDocument(path=str(file_path), reason=str(exc)))
@@ -392,12 +426,14 @@ class IngestionPipeline:
         collection_frequency: Counter[str] = Counter()
         total_tokens = 0
         pdf_ocr_options = self._pdf_ocr_options()
+        msg_options = self._msg_extraction_options()
 
         for file_path in files:
             try:
                 raw_text = extract_text(
                     file_path,
                     pdf_ocr=pdf_ocr_options,
+                    msg_options=msg_options,
                 )
             except Exception as exc:
                 skipped.append(SkippedDocument(path=str(file_path), reason=str(exc)))

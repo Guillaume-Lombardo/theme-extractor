@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from theme_extractor.domain import CleaningOptionFlag
+from theme_extractor.domain import CleaningOptionFlag, MsgAttachmentPolicy
 from theme_extractor.ingestion import IngestionConfig, run_ingestion
 from theme_extractor.ingestion import pipeline as pipeline_mod
-from theme_extractor.ingestion.extractors import PdfOcrOptions
+from theme_extractor.ingestion.extractors import MsgExtractionOptions, PdfOcrOptions
 
 _EXPECTED_TOKEN_COUNT = 2
 _EXPECTED_TOKEN_COUNT_WITH_FILE_STOPWORD = 2
@@ -103,6 +103,8 @@ def test_run_ingestion_propagates_pdf_ocr_settings(tmp_path, monkeypatch) -> Non
             pdf_ocr_dpi=_EXPECTED_OCR_DPI,
             pdf_ocr_min_chars=_EXPECTED_OCR_MIN_CHARS,
             pdf_ocr_tessdata=_EXPECTED_TESSDATA_PATH,
+            msg_include_metadata=False,
+            msg_attachments_policy=MsgAttachmentPolicy.TEXT,
         ),
     )
 
@@ -112,6 +114,8 @@ def test_run_ingestion_propagates_pdf_ocr_settings(tmp_path, monkeypatch) -> Non
     assert result.pdf_ocr_dpi == _EXPECTED_OCR_DPI
     assert result.pdf_ocr_min_chars == _EXPECTED_OCR_MIN_CHARS
     assert result.pdf_ocr_tessdata == _EXPECTED_TESSDATA_PATH
+    assert result.msg_include_metadata is False
+    assert result.msg_attachments_policy == MsgAttachmentPolicy.TEXT.value
     pdf_ocr = captured_kwargs["pdf_ocr"]
     assert isinstance(pdf_ocr, PdfOcrOptions)
     assert pdf_ocr.fallback_enabled is True
@@ -119,3 +123,7 @@ def test_run_ingestion_propagates_pdf_ocr_settings(tmp_path, monkeypatch) -> Non
     assert pdf_ocr.dpi == _EXPECTED_OCR_DPI
     assert pdf_ocr.min_chars == _EXPECTED_OCR_MIN_CHARS
     assert pdf_ocr.tessdata == _EXPECTED_TESSDATA_PATH
+    msg_options = captured_kwargs["msg_options"]
+    assert isinstance(msg_options, MsgExtractionOptions)
+    assert msg_options.include_metadata is False
+    assert msg_options.attachments_policy == MsgAttachmentPolicy.TEXT

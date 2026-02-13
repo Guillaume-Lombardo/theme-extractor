@@ -66,6 +66,14 @@ class _Presentation:
 class _Message:
     def __init__(self, _path: str):
         self.body = "mail body"
+        self.subject = "Subject line"
+        self.sender = "sender@example.com"
+        self.to = "team@example.com"
+        self.cc = ""
+        self.date = "2026-02-13"
+        self.attachments = [
+            SimpleNamespace(longFilename="notes.txt", data=b"attachment body"),
+        ]
 
 
 def _import_module_pdf(name: str) -> object:
@@ -126,6 +134,46 @@ def test_ingest_end2end_html_cleaning_and_stopwords(tmp_path) -> None:
     assert "https" not in preview
 
 
+def test_ingest_end2end_multipage_header_footer_suppression(tmp_path) -> None:
+    sample = tmp_path / "multipage.txt"
+    sample.write_text(
+        (
+            "Company Confidential\n"
+            "Page 1/2\n"
+            "Alpha body text\n"
+            "Footer legal mention\n\n"
+            "Company Confidential\n"
+            "Page 2/2\n"
+            "Beta body text\n"
+            "Footer legal mention\n"
+        ),
+        encoding="utf-8",
+    )
+    out = tmp_path / "multipage.json"
+
+    exit_code = main(
+        [
+            "ingest",
+            "--input",
+            str(sample),
+            "--cleaning-options",
+            "header_footer,whitespace",
+            "--output",
+            str(out),
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    preview = payload["documents"][0]["clean_text_preview"].lower()
+    assert "company confidential" not in preview
+    assert "footer legal mention" not in preview
+    assert "page 1/2" not in preview
+    assert "page 2/2" not in preview
+    assert "alpha body text" in preview
+    assert "beta body text" in preview
+
+
 def test_ingest_end2end_optional_format_with_stubbed_pdf_parser(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(extractors, "import_module", _import_module_pdf)
 
@@ -173,3 +221,31 @@ def test_ingest_end2end_optional_formats_with_stubs(tmp_path, monkeypatch) -> No
         file_path.write_text("placeholder", encoding="utf-8")
         exit_code = main(["ingest", "--input", str(file_path)])
         assert exit_code == 0
+
+
+def test_ingest_end2end_msg_attachment_text_policy(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(extractors, "import_module", _import_module_office)
+
+    msg_path = tmp_path / "mail.msg"
+    msg_path.write_text("placeholder", encoding="utf-8")
+    out = tmp_path / "mail.json"
+
+    exit_code = main(
+        [
+            "ingest",
+            "--input",
+            str(msg_path),
+            "--msg-include-metadata",
+            "--msg-attachments-policy",
+            "text",
+            "--output",
+            str(out),
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert payload["msg_include_metadata"] is True
+    assert payload["msg_attachments_policy"] == "text"
+    assert payload["processed_documents"] == 1
+    assert payload["documents"][0]["token_count"] > 0

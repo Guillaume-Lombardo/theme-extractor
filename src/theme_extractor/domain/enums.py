@@ -99,6 +99,14 @@ class CleaningOptionFlag(IntFlag):
     HTML_STRIP = auto()
 
 
+class MsgAttachmentPolicy(StrEnum):
+    """Represent `.msg` attachment extraction policies."""
+
+    NONE = "none"
+    NAMES = "names"
+    TEXT = "text"
+
+
 _METHOD_TO_FLAG: dict[ExtractMethod, ExtractMethodFlag] = {
     ExtractMethod.BASELINE_TFIDF: ExtractMethodFlag.BASELINE_TFIDF,
     ExtractMethod.TERMS: ExtractMethodFlag.TERMS,
