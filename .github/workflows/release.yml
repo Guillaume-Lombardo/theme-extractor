@@ -31,23 +31,39 @@ jobs:
           python-version: "3.13"
 
       - name: Validate release tag matches project version
-        if: github.event_name == 'release'
+        env:
+          PUBLISH_TARGET: ${{ inputs.publish_target }}
         run: |
           python - <<'PY'
+          import os
           import pathlib
           import tomllib
+
+          event_name = os.environ.get("GITHUB_EVENT_NAME", "")
+          publish_target = os.environ.get("PUBLISH_TARGET")
 
           pyproject = pathlib.Path('pyproject.toml')
           data = tomllib.loads(pyproject.read_text(encoding='utf-8'))
           version = data['project']['version']
 
-          tag = '${{ github.event.release.tag_name }}'
-          normalized_tag = tag.removeprefix('v')
-          if normalized_tag != version:
+          if event_name == "release":
+              tag = '${{ github.event.release.tag_name }}'
+              normalized_tag = tag.removeprefix('v')
+              if normalized_tag != version:
+                  raise SystemExit(
+                      f"Release tag '{tag}' does not match project version '{version}'."
+                  )
+              print(f"Tag/version check OK: {normalized_tag} == {version}")
+          elif event_name == "workflow_dispatch" and publish_target == "pypi":
               raise SystemExit(
-                  f"Release tag '{tag}' does not match project version '{version}'."
+                  "Manual publishing to PyPI is not allowed without a GitHub release tag. "
+                  "Create and publish a GitHub release to publish this version to PyPI."
               )
-          print(f"Tag/version check OK: {tag} == {version}")
+          else:
+              print(
+                  f"Skipping tag/version validation for event '{event_name}' "
+                  f"with publish_target='{publish_target}'."
+              )
           PY
 
       - name: Install build backend

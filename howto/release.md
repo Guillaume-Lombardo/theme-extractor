@@ -13,7 +13,7 @@ The repository provides `.github/workflows/release.yml`.
 
 It supports:
 - automatic publish to PyPI when a GitHub Release is published
-- manual publish to TestPyPI/PyPI via `workflow_dispatch`
+- manual publish to TestPyPI via `workflow_dispatch`
 
 ## Recommended Sequence
 1. Update version in `pyproject.toml`.
@@ -25,6 +25,10 @@ It supports:
 From GitHub Actions:
 - run workflow `Release`
 - choose `publish_target=testpypi`
+
+## Manual `pypi` dispatch behavior
+- Manual `workflow_dispatch` with `publish_target=pypi` is intentionally blocked.
+- Publishing to PyPI must go through a published GitHub Release tag (`v<version>`), which enforces tag/version validation.
 
 ## Troubleshooting
 - Tag/version mismatch:
