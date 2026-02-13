@@ -237,9 +237,64 @@ def test_make_embeddings_uses_local_model_alias_from_data_models(tmp_path, monke
         use_embeddings=True,
         embedding_model="bge-m3",
         local_models_dir=Path("data/models"),
+        embedding_cache_enabled=False,
+        embedding_cache_dir=tmp_path / "cache",
+        embedding_cache_version="v1",
         documents=["doc one", "doc two"],
     )
 
     assert note is None
     assert vectors is not None
     assert captured["model_name"] == str(model_dir.resolve())
+
+
+def test_make_embeddings_uses_cache_after_first_encode(tmp_path, monkeypatch) -> None:
+    cache_dir = tmp_path / "cache"
+    encode_calls = {"count": 0}
+
+    class _SentenceTransformer:
+        def __init__(self, model_name: str) -> None:
+            _ = model_name
+
+        @staticmethod
+        def encode(
+            _documents: list[str],
+            *,
+            convert_to_numpy: bool,
+            normalize_embeddings: bool,
+        ) -> np.ndarray:
+            _ = convert_to_numpy
+            _ = normalize_embeddings
+            encode_calls["count"] += 1
+            return np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32)
+
+    class _Module:
+        SentenceTransformer = _SentenceTransformer
+
+    monkeypatch.setattr(bertopic_mod, "import_module", lambda _name: _Module())
+
+    first_vectors, first_note = bertopic_mod._make_embeddings_if_enabled(
+        use_embeddings=True,
+        embedding_model="dummy-model",
+        local_models_dir=None,
+        embedding_cache_enabled=True,
+        embedding_cache_dir=cache_dir,
+        embedding_cache_version="v1",
+        documents=["doc one", "doc two"],
+    )
+    second_vectors, second_note = bertopic_mod._make_embeddings_if_enabled(
+        use_embeddings=True,
+        embedding_model="dummy-model",
+        local_models_dir=None,
+        embedding_cache_enabled=True,
+        embedding_cache_dir=cache_dir,
+        embedding_cache_version="v1",
+        documents=["doc one", "doc two"],
+    )
+
+    assert encode_calls["count"] == 1
+    assert first_note is None
+    assert first_vectors is not None
+    assert second_vectors is not None
+    assert np.array_equal(first_vectors, second_vectors)
+    assert second_note == "BERTopic embeddings loaded from local cache."

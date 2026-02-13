@@ -231,6 +231,7 @@ def _build_bertopic_config(args: argparse.Namespace) -> BertopicExtractionConfig
     local_models_dir = None
     if local_models_dir_raw and local_models_dir_raw.lower() not in {"none", "null"}:
         local_models_dir = Path(local_models_dir_raw).expanduser()
+    embedding_cache_dir = Path(str(args.bertopic_embedding_cache_dir)).expanduser()
     return BertopicExtractionConfig(
         use_embeddings=bool(args.bertopic_use_embeddings),
         embedding_model=str(args.bertopic_embedding_model),
@@ -240,6 +241,9 @@ def _build_bertopic_config(args: argparse.Namespace) -> BertopicExtractionConfig
         min_topic_size=max(1, int(args.bertopic_min_topic_size)),
         seed=int(args.bertopic_seed),
         local_models_dir=local_models_dir,
+        embedding_cache_enabled=bool(args.bertopic_embedding_cache_enabled),
+        embedding_cache_dir=embedding_cache_dir,
+        embedding_cache_version=str(args.bertopic_embedding_cache_version),
     )
 
 
@@ -447,6 +451,22 @@ def _add_baseline_strategy_flags(subparser: argparse.ArgumentParser) -> None:
         default=42,
         type=int,
         help="Random seed for BERTopic strategy.",
+    )
+    subparser.add_argument(
+        "--bertopic-embedding-cache-enabled",
+        default=_env_bool("THEME_EXTRACTOR_BERTOPIC_EMBEDDING_CACHE_ENABLED", default_value=True),
+        action=argparse.BooleanOptionalAction,
+        help="Enable deterministic local cache for BERTopic embeddings.",
+    )
+    subparser.add_argument(
+        "--bertopic-embedding-cache-dir",
+        default=os.getenv("THEME_EXTRACTOR_BERTOPIC_EMBEDDING_CACHE_DIR", "data/cache/embeddings"),
+        help="Directory where BERTopic embedding cache files are stored.",
+    )
+    subparser.add_argument(
+        "--bertopic-embedding-cache-version",
+        default=os.getenv("THEME_EXTRACTOR_BERTOPIC_EMBEDDING_CACHE_VERSION", "v1"),
+        help="Version namespace used to segregate BERTopic embedding cache keys.",
     )
     subparser.add_argument(
         "--keybert-use-embeddings",

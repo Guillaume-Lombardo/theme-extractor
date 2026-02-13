@@ -117,6 +117,32 @@ def test_extract_with_document_focus_emits_document_topics(capsys, monkeypatch) 
     assert payload["document_topics"]
 
 
+def test_extract_bertopic_accepts_embedding_cache_flags(capsys, monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr("theme_extractor.cli.build_search_backend", _backend_stub)
+    cache_dir = tmp_path / "emb-cache"
+    exit_code = main(
+        [
+            "extract",
+            "--method",
+            "bertopic",
+            "--focus",
+            "topics",
+            "--bertopic-min-topic-size",
+            "1",
+            "--bertopic-embedding-cache-enabled",
+            "--bertopic-embedding-cache-dir",
+            str(cache_dir),
+            "--bertopic-embedding-cache-version",
+            "v2",
+            "--no-bertopic-use-embeddings",
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["metadata"]["method"] == "bertopic"
+
+
 def test_ingest_to_file_writes_json(tmp_path) -> None:
     sample = tmp_path / "sample.txt"
     sample.write_text("Bonjour le monde\\nPage 1/1\\nBonjour le monde\\n", encoding="utf-8")
