@@ -47,7 +47,7 @@ Create your stopwords file yourself (YAML/CSV/TXT), then pass its path with `--m
 - `--pdf-ocr-dpi`: OCR rendering DPI (default `200`).
 - `--pdf-ocr-min-chars`: minimum alphanumeric characters in embedded text required to skip OCR fallback (pages with fewer characters trigger OCR).
 - `--pdf-ocr-tessdata`: optional tessdata directory path.
-- `--msg-include-metadata`: include `.msg` metadata (subject/from/to/date) in extracted text.
+- `--msg-include-metadata`: include `.msg` metadata (subject/from/to/cc/date) in extracted text.
 - `--msg-attachments-policy`: attachment handling policy for `.msg` files (`none`, `names`, `text`).
 - `--streaming-mode`: compact ingestion mode for large corpora (default enabled).
 

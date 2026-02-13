@@ -72,6 +72,12 @@ def test_suppress_headers_footers_keeps_repeated_non_boundary_content() -> None:
     assert "body b" in lowered
 
 
+def test_suppress_headers_footers_does_not_treat_blank_paragraphs_as_pages() -> None:
+    text = "Heading\nParagraph one\n\nHeading\nParagraph two"
+    out = suppress_headers_footers(text)
+    assert out == text
+
+
 def test_tokenize_for_ingestion_lowercases_words() -> None:
     assert tokenize_for_ingestion("Banque de France") == ["banque", "de", "france"]
 

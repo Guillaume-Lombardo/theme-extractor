@@ -32,6 +32,7 @@ _REPEATED_LINE_MIN_RATIO = 0.6
 _REPEATED_LINE_MIN_LEN = 4
 _REPEATED_LINE_MAX_TOKENS = 12
 _MIN_LINES_PER_SEGMENT = 2
+_MIN_PAGE_NUMBER_MARKERS = 2
 
 
 @lru_cache(maxsize=1)
@@ -133,7 +134,7 @@ def suppress_headers_footers(text: str) -> str:
 
     """
     page_segments = _split_text_into_page_segments(text)
-    if len(page_segments) >= _MIN_PAGE_SEGMENTS:
+    if len(page_segments) >= _MIN_PAGE_SEGMENTS and _has_strong_page_boundary_evidence(text, page_segments):
         repeated = _detect_repeated_page_boundary_lines(page_segments)
         filtered_pages = [
             [line for line in page_lines if not _is_page_number_line(line) and line.lower() not in repeated]
@@ -188,6 +189,28 @@ def _split_text_into_page_segments(text: str) -> list[list[str]]:
     raw_segments = re.split(r"\f+|\n\s*\n", normalized)
     segments = [[line.strip() for line in segment.split("\n") if line.strip()] for segment in raw_segments]
     return [segment for segment in segments if len(segment) >= _MIN_LINES_PER_SEGMENT]
+
+
+def _has_strong_page_boundary_evidence(text: str, page_segments: list[list[str]]) -> bool:
+    """Check whether multipage suppression has enough page-boundary evidence.
+
+    Args:
+        text (str): Raw text.
+        page_segments (list[list[str]]): Candidate page segments.
+
+    Returns:
+        bool: True when boundaries likely represent real pages.
+
+    """
+    if "\f" in text:
+        return True
+
+    page_markers = 0
+    for page_lines in page_segments:
+        boundaries = page_lines[:_HEADER_FOOTER_WINDOW] + page_lines[-_HEADER_FOOTER_WINDOW:]
+        if any(_is_page_number_line(line) for line in boundaries):
+            page_markers += 1
+    return page_markers >= _MIN_PAGE_NUMBER_MARKERS
 
 
 def _is_valid_repeated_boundary_line(line: str) -> bool:

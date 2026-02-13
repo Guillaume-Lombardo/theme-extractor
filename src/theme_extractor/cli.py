@@ -638,7 +638,7 @@ def _build_ingest_parser(subparsers: argparse._SubParsersAction[argparse.Argumen
         "--msg-include-metadata",
         default=_env_bool("THEME_EXTRACTOR_MSG_INCLUDE_METADATA", default_value=True),
         action=argparse.BooleanOptionalAction,
-        help="Include `.msg` metadata fields (subject/from/to/date) in extracted text.",
+        help="Include `.msg` metadata fields (subject/from/to/cc/date) in extracted text.",
     )
     ingest_parser.add_argument(
         "--msg-attachments-policy",

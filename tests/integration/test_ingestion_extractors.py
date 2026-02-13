@@ -84,6 +84,20 @@ class _Message:
         ]
 
 
+class _BinaryMessage:
+    def __init__(self, _path: str):
+        self.body = "mail body"
+        self.subject = "Binary Update"
+        self.sender = "sender@example.com"
+        self.to = "team@example.com"
+        self.cc = ""
+        self.date = "2026-02-13"
+        self.attachments = [
+            SimpleNamespace(longFilename="binary.bin", data=b"\x00\xff\x00\xff"),
+            SimpleNamespace(longFilename="big.txt", data=b"a" * 600_000),
+        ]
+
+
 def _import_module_success(name: str) -> object:
     if name == "pymupdf":
         return SimpleNamespace(Document=_PdfDoc)
@@ -95,6 +109,12 @@ def _import_module_success(name: str) -> object:
         return SimpleNamespace(Presentation=_Presentation)
     if name == "extract_msg":
         return SimpleNamespace(Message=_Message)
+    raise ImportError(name)
+
+
+def _import_module_msg_binary(name: str) -> object:
+    if name == "extract_msg":
+        return SimpleNamespace(Message=_BinaryMessage)
     raise ImportError(name)
 
 
@@ -221,6 +241,26 @@ def test_extract_text_msg_with_attachment_text_policy(tmp_path, monkeypatch) -> 
     assert "mail body" in out
     assert "attachment: notes.txt" in lowered
     assert "attachment body" in lowered
+
+
+def test_extract_text_msg_attachment_text_policy_skips_binary_and_oversized(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(extractors, "import_module", _import_module_msg_binary)
+
+    file_path = tmp_path / "a.msg"
+    file_path.write_text("placeholder", encoding="utf-8")
+
+    out = extract_text(
+        file_path,
+        msg_options=MsgExtractionOptions(
+            include_metadata=False,
+            attachments_policy=MsgAttachmentPolicy.TEXT,
+        ),
+    )
+    lowered = out.lower()
+    assert "attachment: binary.bin" in lowered
+    assert "attachment: big.txt" in lowered
+    assert "\x00" not in out
+    assert "aaaaa" not in out
 
 
 def test_apply_cleaning_options_header_footer_and_boilerplate() -> None:

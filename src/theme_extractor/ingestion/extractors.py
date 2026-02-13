@@ -31,6 +31,8 @@ _DOCX_DEPENDENCY_MSG = "Install 'python-docx' to ingest DOCX files."
 _XLSX_DEPENDENCY_MSG = "Install 'openpyxl' to ingest XLSX files."
 _PPTX_DEPENDENCY_MSG = "Install 'python-pptx' to ingest PPTX files."
 _MSG_DEPENDENCY_MSG = "Install 'extract-msg' to ingest .msg files."
+_MAX_MSG_ATTACHMENT_BYTES = 512_000
+_MAX_MSG_ATTACHMENT_CHARS = 100_000
 
 
 @dataclass(frozen=True)
@@ -407,10 +409,21 @@ def _msg_attachment_text(attachment: object) -> str:
 
     """
     data = getattr(attachment, "data", None)
+    result = ""
     if data is None:
-        return ""
+        return result
+
     if isinstance(data, str):
-        return data.strip()
+        if len(data) <= _MAX_MSG_ATTACHMENT_CHARS:
+            result = data.strip()
+        return result
+
     if isinstance(data, bytes):
-        return data.decode("utf-8", errors="ignore").strip()
+        if len(data) > _MAX_MSG_ATTACHMENT_BYTES or b"\x00" in data:
+            return result
+        decoded = data.decode("utf-8", errors="ignore")
+        if len(decoded) <= _MAX_MSG_ATTACHMENT_CHARS:
+            result = decoded.strip()
+        return result
+
     return str(data).strip()
