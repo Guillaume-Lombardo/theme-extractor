@@ -39,6 +39,19 @@ Fix:
 uv pip install pymupdf python-docx openpyxl python-pptx extract-msg
 ```
 
+## Scanned PDFs produce empty/near-empty content
+
+Likely cause:
+- PDF pages are image-only (no embedded text layer).
+
+Fix:
+- Enable OCR fallback during ingestion:
+  - `--pdf-ocr-fallback --pdf-ocr-languages fra+eng --pdf-ocr-dpi 200`
+- Tune OCR trigger threshold:
+  - `--pdf-ocr-min-chars 32`
+- If your OCR runtime needs an explicit tessdata path:
+  - `--pdf-ocr-tessdata /path/to/tessdata`
+
 ## Proxy and offline behavior
 
 Tips:

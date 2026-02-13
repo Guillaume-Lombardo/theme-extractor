@@ -8,13 +8,28 @@ import pytest
 from theme_extractor.domain import CleaningOptionFlag
 from theme_extractor.ingestion import extractors
 from theme_extractor.ingestion.cleaning import apply_cleaning_options
-from theme_extractor.ingestion.extractors import extract_text, supported_suffixes
+from theme_extractor.ingestion.extractors import PdfOcrOptions, extract_text, supported_suffixes
 
 
 class _PdfPage:
     @staticmethod
     def get_text() -> str:
         return "pdf text"
+
+
+class _PdfScannedPage:
+    @staticmethod
+    def get_text(*args, **kwargs) -> str:  # noqa: ANN002, ANN003
+        if "textpage" in kwargs or (args and args[0] == "text"):
+            return "ocr extracted text"
+        return ""
+
+    @staticmethod
+    def get_textpage_ocr(*, language: str, dpi: int, tessdata: str | None = None) -> object:
+        _ = language
+        _ = dpi
+        _ = tessdata
+        return object()
 
 
 class _PdfDoc:
@@ -70,6 +85,19 @@ def _import_module_success(name: str) -> object:
     raise ImportError(name)
 
 
+def _import_module_pdf_scanned(name: str) -> object:
+    class _ScannedPdfDoc:
+        def __init__(self, _path: str):
+            self._pages = [_PdfScannedPage()]
+
+        def __iter__(self) -> object:
+            return iter(self._pages)
+
+    if name == "pymupdf":
+        return SimpleNamespace(Document=_ScannedPdfDoc)
+    raise ImportError(name)
+
+
 def test_supported_suffixes_contains_expected_formats() -> None:
     suffixes = supported_suffixes()
     assert ".txt" in suffixes
@@ -122,6 +150,25 @@ def test_extract_text_optional_parsers_success(tmp_path, monkeypatch, filename: 
     file_path.write_text("placeholder", encoding="utf-8")
 
     assert expected in extract_text(file_path).lower()
+
+
+def test_extract_text_pdf_ocr_fallback_enabled(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(extractors, "import_module", _import_module_pdf_scanned)
+
+    pdf = tmp_path / "scan.pdf"
+    pdf.write_text("placeholder", encoding="utf-8")
+
+    out = extract_text(
+        pdf,
+        pdf_ocr=PdfOcrOptions(
+            fallback_enabled=True,
+            languages="fra+eng",
+            dpi=200,
+            min_chars=1,
+        ),
+    )
+
+    assert out == "ocr extracted text"
 
 
 def test_apply_cleaning_options_header_footer_and_boilerplate() -> None:

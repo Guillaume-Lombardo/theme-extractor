@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from importlib import import_module
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Protocol
 
 from theme_extractor.errors import MissingOptionalDependencyError
 
@@ -31,6 +32,25 @@ _PPTX_DEPENDENCY_MSG = "Install 'python-pptx' to ingest PPTX files."
 _MSG_DEPENDENCY_MSG = "Install 'extract-msg' to ingest .msg files."
 
 
+@dataclass(frozen=True)
+class PdfOcrOptions:
+    """Represent optional OCR fallback settings for PDF extraction."""
+
+    fallback_enabled: bool = False
+    languages: str = "fra+eng"
+    dpi: int = 200
+    min_chars: int = 32
+    tessdata: str | None = None
+
+
+class _PdfPageProtocol(Protocol):
+    """Represent the subset of PyMuPDF page APIs used by OCR fallback."""
+
+    def get_text(self, *args: object, **kwargs: object) -> str: ...
+
+    def get_textpage_ocr(self, **kwargs: object) -> object: ...
+
+
 def supported_suffixes() -> set[str]:
     """Return supported ingestion file suffixes.
 
@@ -41,11 +61,16 @@ def supported_suffixes() -> set[str]:
     return set(_SUPPORTED_SUFFIXES)
 
 
-def extract_text(path: Path) -> str:
+def extract_text(
+    path: Path,
+    *,
+    pdf_ocr: PdfOcrOptions | None = None,
+) -> str:
     """Extract text content from one file.
 
     Args:
         path (Path): Input file path.
+        pdf_ocr (PdfOcrOptions | None): OCR fallback settings for scanned PDFs.
 
     Raises:
         ValueError: If the file suffix is unsupported.
@@ -60,7 +85,10 @@ def extract_text(path: Path) -> str:
         return path.read_text(encoding="utf-8", errors="ignore")
 
     if suffix == ".pdf":
-        return _extract_pdf(path)
+        return _extract_pdf(
+            path,
+            pdf_ocr=PdfOcrOptions() if pdf_ocr is None else pdf_ocr,
+        )
 
     if suffix in {".doc", ".docx"}:
         return _extract_docx(path)
@@ -77,11 +105,16 @@ def extract_text(path: Path) -> str:
     raise ValueError(f"Unsupported file type: {suffix}")  # noqa: TRY003
 
 
-def _extract_pdf(path: Path) -> str:
+def _extract_pdf(
+    path: Path,
+    *,
+    pdf_ocr: PdfOcrOptions,
+) -> str:
     """Extract text from PDF.
 
     Args:
         path (Path): Input PDF path.
+        pdf_ocr (PdfOcrOptions): OCR fallback settings for scanned PDFs.
 
     Raises:
         MissingOptionalDependencyError: If `pymupdf` is missing.
@@ -96,7 +129,79 @@ def _extract_pdf(path: Path) -> str:
         raise MissingOptionalDependencyError(_PDF_DEPENDENCY_MSG) from exc
 
     document = pymupdf.Document(str(path))
-    return "\n\n".join(page.get_text() for page in document)
+    pages: list[str] = []
+    for page in document:
+        plain_text = str(page.get_text() or "")
+        if not pdf_ocr.fallback_enabled or _has_enough_pdf_text(plain_text, min_chars=pdf_ocr.min_chars):
+            pages.append(plain_text)
+            continue
+
+        ocr_text = _extract_pdf_page_with_ocr(
+            page=page,
+            pdf_ocr=pdf_ocr,
+        )
+        if _has_enough_pdf_text(ocr_text, min_chars=pdf_ocr.min_chars) or not plain_text.strip():
+            pages.append(ocr_text)
+        else:
+            pages.append(plain_text)
+    return "\n\n".join(page.strip() for page in pages if page.strip())
+
+
+def _has_enough_pdf_text(text: str, *, min_chars: int) -> bool:
+    """Check whether extracted PDF text is substantial enough to skip OCR fallback.
+
+    Args:
+        text (str): Extracted page text.
+        min_chars (int): Minimum alphanumeric character threshold.
+
+    Returns:
+        bool: True when text volume is sufficient.
+
+    """
+    alnum_count = sum(1 for char in text if char.isalnum())
+    return alnum_count >= max(min_chars, 1)
+
+
+def _extract_pdf_page_with_ocr(
+    *,
+    page: _PdfPageProtocol,
+    pdf_ocr: PdfOcrOptions,
+) -> str:
+    """Extract one PDF page with OCR when PyMuPDF OCR APIs are available.
+
+    Args:
+        page (object): One PyMuPDF page object.
+        pdf_ocr (PdfOcrOptions): OCR fallback settings.
+
+    Returns:
+        str: OCR-extracted text, or an empty string if OCR is unavailable/fails.
+
+    """
+    get_textpage_ocr = getattr(page, "get_textpage_ocr", None)
+    if not callable(get_textpage_ocr):
+        return ""
+
+    kwargs: dict[str, Any] = {
+        "language": pdf_ocr.languages,
+        "dpi": pdf_ocr.dpi,
+    }
+    if pdf_ocr.tessdata:
+        kwargs["tessdata"] = pdf_ocr.tessdata
+
+    try:
+        textpage = get_textpage_ocr(**kwargs)
+    except Exception:
+        return ""
+
+    try:
+        return str(page.get_text("text", textpage=textpage) or "")
+    except TypeError:
+        try:
+            return str(page.get_text(textpage=textpage) or "")
+        except Exception:
+            return ""
+    except Exception:
+        return ""
 
 
 def _extract_docx(path: Path) -> str:

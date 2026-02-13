@@ -13,6 +13,8 @@ _PARSER_ERROR_EXIT_CODE = 2
 _EXPECTED_BENCHMARK_METHOD_COUNT = 2
 _PROXY_URL = "http://proxy.local:8080"
 _PROXY_ENV_KEYS = ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")
+_EXPECTED_OCR_DPI = 300
+_EXPECTED_OCR_MIN_CHARS = 12
 
 
 class _BackendUnavailableError(RuntimeError):
@@ -186,6 +188,38 @@ def test_ingest_accepts_none_cleaning_option(tmp_path, capsys) -> None:
     assert exit_code == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["cleaning_options"] == "none"
+
+
+def test_ingest_accepts_pdf_ocr_flags(tmp_path, capsys) -> None:
+    sample = tmp_path / "sample.pdf"
+    sample.write_text("placeholder", encoding="utf-8")
+    tessdata = tmp_path / "tessdata"
+    tessdata.mkdir()
+
+    exit_code = main(
+        [
+            "ingest",
+            "--input",
+            str(sample),
+            "--pdf-ocr-fallback",
+            "--pdf-ocr-languages",
+            "fra+eng",
+            "--pdf-ocr-dpi",
+            str(_EXPECTED_OCR_DPI),
+            "--pdf-ocr-min-chars",
+            str(_EXPECTED_OCR_MIN_CHARS),
+            "--pdf-ocr-tessdata",
+            str(tessdata),
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["pdf_ocr_fallback"] is True
+    assert payload["pdf_ocr_languages"] == "fra+eng"
+    assert payload["pdf_ocr_dpi"] == _EXPECTED_OCR_DPI
+    assert payload["pdf_ocr_min_chars"] == _EXPECTED_OCR_MIN_CHARS
+    assert payload["pdf_ocr_tessdata"] == str(tessdata)
 
 
 def test_benchmark_rejects_unknown_method() -> None:
