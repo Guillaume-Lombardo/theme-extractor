@@ -94,12 +94,12 @@ Create a production-grade toolkit to compare topic extraction strategies on hete
   - [x] optional embedding cache with deterministic keys/versioning
 
 ### Phase 7 - Rationalize documentation
-- [ ] Make the README clearer for external users.
-- [ ] Make a folder `howto` containing markdown files (main commands, variant examples, and their ups and downs):
-  - [ ] How to ingest a corpus
-  - [ ] How to run theme extraction and interpret its report
-  - [ ] How to run a benchmark and choose the best strategy
-  - [ ] How to generate a report
+- [x] Make the README clearer for external users.
+- [x] Make a folder `howto` containing markdown files (main commands, variant examples, and their ups and downs):
+  - [x] How to ingest a corpus
+  - [x] How to run theme extraction and interpret its report
+  - [x] How to run a benchmark and choose the best strategy
+  - [x] How to generate a report
 - [ ] Make a Sphinx documentation including docstrings, README, and how-to guides.
 
 ## Branch and PR Policy
