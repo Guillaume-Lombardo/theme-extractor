@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from importlib import import_module
 from typing import TYPE_CHECKING, Any, Protocol
 
+from theme_extractor.domain import MsgAttachmentPolicy
 from theme_extractor.errors import MissingOptionalDependencyError
 
 if TYPE_CHECKING:
@@ -43,6 +44,14 @@ class PdfOcrOptions:
     tessdata: str | None = None
 
 
+@dataclass(frozen=True)
+class MsgExtractionOptions:
+    """Represent optional extraction settings for `.msg` files."""
+
+    include_metadata: bool = True
+    attachments_policy: MsgAttachmentPolicy = MsgAttachmentPolicy.NAMES
+
+
 class _PdfPageProtocol(Protocol):
     """Represent the subset of PyMuPDF page APIs used by OCR fallback."""
 
@@ -65,12 +74,14 @@ def extract_text(
     path: Path,
     *,
     pdf_ocr: PdfOcrOptions | None = None,
+    msg_options: MsgExtractionOptions | None = None,
 ) -> str:
     """Extract text content from one file.
 
     Args:
         path (Path): Input file path.
         pdf_ocr (PdfOcrOptions | None): OCR fallback settings for scanned PDFs.
+        msg_options (MsgExtractionOptions | None): Optional `.msg` extraction settings.
 
     Raises:
         ValueError: If the file suffix is unsupported.
@@ -100,7 +111,7 @@ def extract_text(
         return _extract_pptx(path)
 
     if suffix == ".msg":
-        return _extract_msg(path)
+        return _extract_msg(path, options=MsgExtractionOptions() if msg_options is None else msg_options)
 
     raise ValueError(f"Unsupported file type: {suffix}")  # noqa: TRY003
 
@@ -284,11 +295,12 @@ def _extract_pptx(path: Path) -> str:
     return "\n".join(lines)
 
 
-def _extract_msg(path: Path) -> str:
+def _extract_msg(path: Path, *, options: MsgExtractionOptions) -> str:
     """Extract text from MSG email files.
 
     Args:
         path (Path): Input `.msg` path.
+        options (MsgExtractionOptions): `.msg` extraction options.
 
     Raises:
         MissingOptionalDependencyError: If `extract-msg` is missing.
@@ -303,4 +315,102 @@ def _extract_msg(path: Path) -> str:
         raise MissingOptionalDependencyError(_MSG_DEPENDENCY_MSG) from exc
 
     message = extract_msg.Message(str(path))
-    return str(message.body or "")
+    lines: list[str] = []
+
+    if options.include_metadata:
+        metadata_fields = (
+            ("subject", getattr(message, "subject", "")),
+            ("from", getattr(message, "sender", "")),
+            ("to", getattr(message, "to", "")),
+            ("cc", getattr(message, "cc", "")),
+            ("date", getattr(message, "date", "")),
+        )
+        for key, value in metadata_fields:
+            normalized = str(value).strip()
+            if normalized:
+                lines.append(f"{key}: {normalized}")
+
+    body = str(getattr(message, "body", "") or "").strip()
+    if body:
+        lines.append(body)
+
+    if options.attachments_policy != MsgAttachmentPolicy.NONE:
+        attachments = list(getattr(message, "attachments", []) or [])
+        lines.extend(
+            _extract_msg_attachments_text(
+                attachments=attachments,
+                policy=options.attachments_policy,
+            ),
+        )
+
+    return "\n".join(lines).strip()
+
+
+def _extract_msg_attachments_text(
+    *,
+    attachments: list[object],
+    policy: MsgAttachmentPolicy,
+) -> list[str]:
+    """Extract attachment information from `.msg` message attachments.
+
+    Args:
+        attachments (list[object]): Raw attachments from `extract-msg`.
+        policy (MsgAttachmentPolicy): Attachment extraction policy.
+
+    Returns:
+        list[str]: Extracted attachment lines.
+
+    """
+    lines: list[str] = []
+    for attachment in attachments:
+        name = _msg_attachment_name(attachment)
+        if policy == MsgAttachmentPolicy.NAMES:
+            if name:
+                lines.append(f"attachment: {name}")
+            continue
+
+        text = _msg_attachment_text(attachment)
+        if name and text:
+            lines.extend((f"attachment: {name}", text))
+        elif name:
+            lines.append(f"attachment: {name}")
+        elif text:
+            lines.append(text)
+    return lines
+
+
+def _msg_attachment_name(attachment: object) -> str:
+    """Return normalized attachment name when available.
+
+    Args:
+        attachment (object): One attachment object.
+
+    Returns:
+        str: Attachment name or an empty string.
+
+    """
+    for attr in ("longFilename", "filename", "displayName", "name"):
+        value = getattr(attachment, attr, None)
+        if value:
+            return str(value).strip()
+    return ""
+
+
+def _msg_attachment_text(attachment: object) -> str:
+    """Return text content decoded from one attachment when possible.
+
+    Args:
+        attachment (object): One attachment object.
+
+    Returns:
+        str: Decoded textual content, or an empty string.
+
+    """
+    data = getattr(attachment, "data", None)
+    if data is None:
+        return ""
+    if isinstance(data, str):
+        return data.strip()
+    if isinstance(data, bytes):
+        return data.decode("utf-8", errors="ignore").strip()
+    return str(data).strip()

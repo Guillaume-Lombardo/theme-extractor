@@ -39,6 +39,20 @@ Fix:
 uv pip install pymupdf python-docx openpyxl python-pptx extract-msg
 ```
 
+## `.msg` ingestion misses expected context
+
+Likely causes:
+- metadata extraction disabled
+- attachment policy too restrictive
+
+Fix:
+- include email metadata:
+  - `--msg-include-metadata`
+- include attachment names:
+  - `--msg-attachments-policy names`
+- include attachment textual payloads when useful:
+  - `--msg-attachments-policy text`
+
 ## Scanned PDFs produce empty/near-empty content
 
 Likely cause:

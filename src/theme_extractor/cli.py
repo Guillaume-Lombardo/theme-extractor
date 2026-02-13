@@ -23,6 +23,7 @@ from theme_extractor.domain import (
     ExtractionRunMetadata,
     ExtractMethod,
     LlmProvider,
+    MsgAttachmentPolicy,
     OfflinePolicy,
     OutputFocus,
     UnifiedExtractionOutput,
@@ -633,6 +634,18 @@ def _build_ingest_parser(subparsers: argparse._SubParsersAction[argparse.Argumen
         default=os.getenv("THEME_EXTRACTOR_PDF_OCR_TESSDATA", None),
         help="Optional tessdata directory path for OCR runtime.",
     )
+    ingest_parser.add_argument(
+        "--msg-include-metadata",
+        default=_env_bool("THEME_EXTRACTOR_MSG_INCLUDE_METADATA", default_value=True),
+        action=argparse.BooleanOptionalAction,
+        help="Include `.msg` metadata fields (subject/from/to/date) in extracted text.",
+    )
+    ingest_parser.add_argument(
+        "--msg-attachments-policy",
+        default=os.getenv("THEME_EXTRACTOR_MSG_ATTACHMENTS_POLICY", MsgAttachmentPolicy.NAMES.value),
+        choices=[policy.value for policy in MsgAttachmentPolicy],
+        help="Attachment extraction policy for `.msg` files.",
+    )
     _add_shared_runtime_flags(ingest_parser)
     _add_output_flag(ingest_parser)
     ingest_parser.set_defaults(handler=_handle_ingest)
@@ -969,6 +982,8 @@ def _handle_ingest(args: argparse.Namespace) -> dict[str, Any]:
         pdf_ocr_dpi=int(args.pdf_ocr_dpi),
         pdf_ocr_min_chars=int(args.pdf_ocr_min_chars),
         pdf_ocr_tessdata=None if args.pdf_ocr_tessdata in {None, ""} else str(args.pdf_ocr_tessdata),
+        msg_include_metadata=bool(args.msg_include_metadata),
+        msg_attachments_policy=MsgAttachmentPolicy(str(args.msg_attachments_policy)),
     )
     result = run_ingestion(config)
     payload = result.model_dump(mode="json")

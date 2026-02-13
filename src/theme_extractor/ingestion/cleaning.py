@@ -26,6 +26,12 @@ _NUM_PAGE_RE = re.compile(r"^\d+\s*/\s*\d+$")
 _URL_RE = re.compile(r"https?://\S+|www\.\S+", re.IGNORECASE)
 _EMAIL_RE = re.compile(r"\b[^\s@]+@[^\s@]+\.[^\s@]+\b")
 _MIN_HEADER_FOOTER_LINES = 6
+_MIN_PAGE_SEGMENTS = 2
+_HEADER_FOOTER_WINDOW = 2
+_REPEATED_LINE_MIN_RATIO = 0.6
+_REPEATED_LINE_MIN_LEN = 4
+_REPEATED_LINE_MAX_TOKENS = 12
+_MIN_LINES_PER_SEGMENT = 2
 
 
 @lru_cache(maxsize=1)
@@ -126,6 +132,16 @@ def suppress_headers_footers(text: str) -> str:
         str: Text after removing repeated header/footer lines.
 
     """
+    page_segments = _split_text_into_page_segments(text)
+    if len(page_segments) >= _MIN_PAGE_SEGMENTS:
+        repeated = _detect_repeated_page_boundary_lines(page_segments)
+        filtered_pages = [
+            [line for line in page_lines if not _is_page_number_line(line) and line.lower() not in repeated]
+            for page_lines in page_segments
+        ]
+        filtered_lines = [line for page in filtered_pages for line in page]
+        return "\n".join(filtered_lines)
+
     lines = [line.strip() for line in text.split("\n") if line.strip()]
     if len(lines) < _MIN_HEADER_FOOTER_LINES:
         return text
@@ -142,6 +158,79 @@ def suppress_headers_footers(text: str) -> str:
 
     filtered = [line for line in lines if line.lower() not in to_remove]
     return "\n".join(filtered)
+
+
+def _is_page_number_line(line: str) -> bool:
+    """Return whether one line looks like a page number marker.
+
+    Args:
+        line (str): Input line.
+
+    Returns:
+        bool: True if line matches one page-number pattern.
+
+    """
+    normalized = line.strip().lower()
+    return bool(_PAGE_PATTERN_RE.match(normalized) or _NUM_PAGE_RE.match(normalized))
+
+
+def _split_text_into_page_segments(text: str) -> list[list[str]]:
+    """Split text into probable page segments for boundary-line analysis.
+
+    Args:
+        text (str): Raw text.
+
+    Returns:
+        list[list[str]]: Segments represented as non-empty stripped lines.
+
+    """
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    raw_segments = re.split(r"\f+|\n\s*\n", normalized)
+    segments = [[line.strip() for line in segment.split("\n") if line.strip()] for segment in raw_segments]
+    return [segment for segment in segments if len(segment) >= _MIN_LINES_PER_SEGMENT]
+
+
+def _is_valid_repeated_boundary_line(line: str) -> bool:
+    """Validate repeated boundary-line candidates for safe suppression.
+
+    Args:
+        line (str): Candidate line.
+
+    Returns:
+        bool: True if candidate should be considered removable.
+
+    """
+    if len(line) < _REPEATED_LINE_MIN_LEN:
+        return False
+    tokens = line.split()
+    return len(tokens) <= _REPEATED_LINE_MAX_TOKENS
+
+
+def _detect_repeated_page_boundary_lines(page_segments: list[list[str]]) -> set[str]:
+    """Detect repeated header/footer lines across page segments.
+
+    Args:
+        page_segments (list[list[str]]): Segments represented as non-empty stripped lines.
+
+    Returns:
+        set[str]: Lower-cased repeated boundary lines to remove.
+
+    """
+    boundary_candidates: list[str] = []
+    for page_lines in page_segments:
+        boundary_candidates.extend(line.lower() for line in page_lines[:_HEADER_FOOTER_WINDOW])
+        boundary_candidates.extend(line.lower() for line in page_lines[-_HEADER_FOOTER_WINDOW:])
+
+    if not boundary_candidates:
+        return set()
+
+    threshold = max(2, int(len(page_segments) * _REPEATED_LINE_MIN_RATIO))
+    counts = Counter(boundary_candidates)
+    return {
+        line
+        for line, count in counts.items()
+        if count >= threshold and _is_valid_repeated_boundary_line(line)
+    }
 
 
 def tokenize_for_ingestion(text: str) -> list[str]:
@@ -461,9 +550,6 @@ def apply_cleaning_options(text: str, *, options: CleaningOptionFlag) -> str:
 
     if options & CleaningOptionFlag.BOILERPLATE:
         output = remove_boilerplate(output)
-
-    if options & CleaningOptionFlag.WHITESPACE:
-        output = normalize_whitespace(output)
 
     if options & CleaningOptionFlag.HEADER_FOOTER:
         output = suppress_headers_footers(output)

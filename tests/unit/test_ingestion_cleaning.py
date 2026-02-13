@@ -15,6 +15,8 @@ from theme_extractor.ingestion.cleaning import (
     tokenize_for_ingestion,
 )
 
+_EXPECTED_REPEATED_CLAUSE_COUNT = 2
+
 
 def test_normalize_whitespace_compacts_lines() -> None:
     text = "  Bonjour   le   monde \n\n  Ceci  est   un test  "
@@ -30,6 +32,44 @@ def test_suppress_headers_footers_removes_page_lines() -> None:
     out = suppress_headers_footers(text)
     assert "page 1/2" not in out.lower()
     assert "page 2/2" not in out.lower()
+
+
+def test_suppress_headers_footers_removes_repeated_multipage_boundaries() -> None:
+    text = (
+        "Company Confidential\n"
+        "Page 1/3\n"
+        "Alpha body text\n"
+        "Footer legal mention\n\n"
+        "Company Confidential\n"
+        "Page 2/3\n"
+        "Beta body text\n"
+        "Footer legal mention\n\n"
+        "Company Confidential\n"
+        "Page 3/3\n"
+        "Gamma body text\n"
+        "Footer legal mention\n"
+    )
+    out = suppress_headers_footers(text)
+    lowered = out.lower()
+    assert "company confidential" not in lowered
+    assert "footer legal mention" not in lowered
+    assert "page 1/3" not in lowered
+    assert "page 2/3" not in lowered
+    assert "page 3/3" not in lowered
+    assert "alpha body text" in lowered
+    assert "beta body text" in lowered
+    assert "gamma body text" in lowered
+
+
+def test_suppress_headers_footers_keeps_repeated_non_boundary_content() -> None:
+    text = "Header\nPage 1/2\nClause 42\nBody A\nFooter\n\nHeader\nPage 2/2\nClause 42\nBody B\nFooter\n"
+    out = suppress_headers_footers(text)
+    lowered = out.lower()
+    assert "header" not in lowered
+    assert "footer" not in lowered
+    assert lowered.count("clause 42") == _EXPECTED_REPEATED_CLAUSE_COUNT
+    assert "body a" in lowered
+    assert "body b" in lowered
 
 
 def test_tokenize_for_ingestion_lowercases_words() -> None:

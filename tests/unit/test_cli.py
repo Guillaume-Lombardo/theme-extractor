@@ -222,6 +222,27 @@ def test_ingest_accepts_pdf_ocr_flags(tmp_path, capsys) -> None:
     assert payload["pdf_ocr_tessdata"] == str(tessdata)
 
 
+def test_ingest_accepts_msg_extraction_flags(tmp_path, capsys) -> None:
+    sample = tmp_path / "sample.txt"
+    sample.write_text("hello", encoding="utf-8")
+
+    exit_code = main(
+        [
+            "ingest",
+            "--input",
+            str(sample),
+            "--no-msg-include-metadata",
+            "--msg-attachments-policy",
+            "text",
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["msg_include_metadata"] is False
+    assert payload["msg_attachments_policy"] == "text"
+
+
 def test_benchmark_rejects_unknown_method() -> None:
     with pytest.raises(UnsupportedMethodError, match="Unsupported extraction method: unknown"):
         main(["benchmark", "--methods", "unknown"])
