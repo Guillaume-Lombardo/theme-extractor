@@ -298,3 +298,43 @@ def test_make_embeddings_uses_cache_after_first_encode(tmp_path, monkeypatch) ->
     assert second_vectors is not None
     assert np.array_equal(first_vectors, second_vectors)
     assert second_note == "BERTopic embeddings loaded from local cache."
+
+
+def test_make_embeddings_continues_when_cache_load_fails(tmp_path, monkeypatch) -> None:
+    class _SentenceTransformer:
+        def __init__(self, model_name: str) -> None:
+            _ = model_name
+
+        @staticmethod
+        def encode(
+            _documents: list[str],
+            *,
+            convert_to_numpy: bool,
+            normalize_embeddings: bool,
+        ) -> np.ndarray:
+            _ = convert_to_numpy
+            _ = normalize_embeddings
+            return np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32)
+
+    class _Module:
+        SentenceTransformer = _SentenceTransformer
+
+    monkeypatch.setattr(bertopic_mod, "import_module", lambda _name: _Module())
+    monkeypatch.setattr(
+        bertopic_mod,
+        "load_embeddings_from_cache",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("cache boom")),
+    )
+
+    vectors, note = bertopic_mod._make_embeddings_if_enabled(
+        use_embeddings=True,
+        embedding_model="dummy-model",
+        local_models_dir=None,
+        embedding_cache_enabled=True,
+        embedding_cache_dir=tmp_path / "cache",
+        embedding_cache_version="v1",
+        documents=["doc one", "doc two"],
+    )
+
+    assert vectors is not None
+    assert note is None

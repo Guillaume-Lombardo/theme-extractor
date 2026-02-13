@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from contextlib import suppress
 from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -168,10 +169,13 @@ def _make_embeddings_if_enabled(  # noqa: PLR0913
                 cache_version=embedding_cache_version,
                 documents=documents,
             )
-            cached_vectors = load_embeddings_from_cache(
-                cache_dir=embedding_cache_dir.expanduser(),
-                cache_key=cache_key,
-            )
+            try:
+                cached_vectors = load_embeddings_from_cache(
+                    cache_dir=embedding_cache_dir.expanduser(),
+                    cache_key=cache_key,
+                )
+            except Exception:
+                cached_vectors = None
             if cached_vectors is not None:
                 return cached_vectors, _EMBEDDING_CACHE_HIT_NOTE
 
@@ -181,17 +185,18 @@ def _make_embeddings_if_enabled(  # noqa: PLR0913
         vectors = model.encode(documents, convert_to_numpy=True, normalize_embeddings=True)
 
         if embedding_cache_enabled:
-            store_embeddings_in_cache(
-                cache_dir=embedding_cache_dir.expanduser(),
-                cache_key=cache_key,
-                vectors=np.asarray(vectors, dtype=np.float32),
-                metadata={
-                    "strategy": "bertopic",
-                    "model_name": resolved_model,
-                    "cache_version": embedding_cache_version,
-                    "document_count": len(documents),
-                },
-            )
+            with suppress(Exception):
+                store_embeddings_in_cache(
+                    cache_dir=embedding_cache_dir.expanduser(),
+                    cache_key=cache_key,
+                    vectors=np.asarray(vectors, dtype=np.float32),
+                    metadata={
+                        "strategy": "bertopic",
+                        "model_name": resolved_model,
+                        "cache_version": embedding_cache_version,
+                        "document_count": len(documents),
+                    },
+                )
     except ImportError:
         return None, _EMBEDDINGS_FALLBACK_NOTE
     except Exception as exc:

@@ -51,3 +51,11 @@ def test_store_and_load_embeddings_roundtrip(tmp_path) -> None:
 def test_load_embeddings_from_cache_missing_returns_none(tmp_path) -> None:
     loaded = load_embeddings_from_cache(cache_dir=tmp_path / "cache", cache_key="missing")
     assert loaded is None
+
+
+def test_load_embeddings_from_cache_corrupted_file_returns_none(tmp_path) -> None:
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "bad.npy").write_text("not-a-valid-npy", encoding="utf-8")
+    loaded = load_embeddings_from_cache(cache_dir=cache_dir, cache_key="bad")
+    assert loaded is None
