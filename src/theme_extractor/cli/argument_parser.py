@@ -483,7 +483,7 @@ def build_report_parser(subparsers: argparse._SubParsersAction[argparse.Argument
     """
     report_parser = subparsers.add_parser(
         CommandName.REPORT.value,
-        help="Render markdown report from extraction/benchmark output.",
+        help="Render markdown report from extraction/benchmark/evaluation output.",
     )
     report_parser.add_argument(
         "--input",

@@ -339,7 +339,7 @@ def handle_doctor(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def handle_report(args: argparse.Namespace) -> str:
-    """Build markdown report from one extraction/benchmark JSON payload.
+    """Build markdown report from one extraction/benchmark/evaluation JSON payload.
 
     Args:
         args (argparse.Namespace): Parsed command-line arguments.

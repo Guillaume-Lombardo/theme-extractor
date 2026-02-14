@@ -1,4 +1,4 @@
-"""Markdown report generation from unified extraction JSON payloads."""
+"""Markdown report generation from extraction, benchmark, and evaluation payloads."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ class UnsupportedReportPayloadError(ValueError, ThemeExtractorError):
 
     def __init__(self) -> None:
         """Build unsupported report payload exception."""
-        super().__init__("Input JSON is not a supported extract/benchmark payload.")
+        super().__init__("Input JSON is not a supported extract/benchmark/evaluate payload.")
 
 
 def _fmt_score(score: float | None) -> str:
@@ -235,7 +235,102 @@ def render_benchmark_markdown(output: BenchmarkOutput, *, title: str | None = No
     return "\n".join(lines).rstrip() + "\n"
 
 
-def load_report_payload(input_path: Path) -> BenchmarkOutput | UnifiedExtractionOutput:
+def _render_evaluation_extract_rows(payload: dict[str, Any]) -> list[str]:
+    """Render evaluation extract metrics table rows.
+
+    Args:
+        payload (dict[str, Any]): Evaluation payload.
+
+    Returns:
+        list[str]: Markdown table rows.
+
+    """
+    rows = [
+        "| Path | Method | Topics | Documents | Avg Keywords/Topic | Coherence Proxy |",
+        "| --- | --- | ---: | ---: | ---: | ---: |",
+    ]
+    for extract in payload.get("extracts", []):
+        if not isinstance(extract, dict):
+            continue
+        metrics = extract.get("metrics", {})
+        if not isinstance(metrics, dict):
+            continue
+        rows.append(
+            f"| {extract.get('path', '-')} | {metrics.get('method', '-')} | "
+            f"{metrics.get('topic_count', 0)} | {metrics.get('document_topic_count', 0)} | "
+            f"{float(metrics.get('avg_keywords_per_topic', 0.0)):.4f} | "
+            f"{float(metrics.get('topic_coherence_proxy', 0.0)):.4f} |",
+        )
+    if len(rows) == _EMPTY_TABLE_DATA_ROW_INDEX:
+        rows.append("| - | - | - | - | - | - |")
+    return rows
+
+
+def _render_evaluation_benchmark_rows(payload: dict[str, Any]) -> list[str]:
+    """Render evaluation benchmark metrics table rows.
+
+    Args:
+        payload (dict[str, Any]): Evaluation payload.
+
+    Returns:
+        list[str]: Markdown table rows.
+
+    """
+    rows = [
+        "| Path | Methods | Cross-method Mean Jaccard |",
+        "| --- | ---: | ---: |",
+    ]
+    for benchmark in payload.get("benchmarks", []):
+        if not isinstance(benchmark, dict):
+            continue
+        metrics = benchmark.get("metrics", {})
+        if not isinstance(metrics, dict):
+            continue
+        rows.append(
+            f"| {benchmark.get('path', '-')} | {metrics.get('method_count', 0)} | "
+            f"{_fmt_score(metrics.get('cross_method_mean_jaccard'))} |",
+        )
+    if len(rows) == _EMPTY_TABLE_DATA_ROW_INDEX:
+        rows.append("| - | - | - |")
+    return rows
+
+
+def render_evaluation_markdown(payload: dict[str, Any], *, title: str | None = None) -> str:
+    """Render one evaluation output as markdown report.
+
+    Args:
+        payload (dict[str, Any]): Evaluation payload.
+        title (str | None): Optional report title override.
+
+    Returns:
+        str: Markdown report content.
+
+    """
+    summary = payload.get("summary", {})
+    if not isinstance(summary, dict):
+        summary = {}
+    lines = [
+        f"# {title or 'Theme Extractor Evaluation Report'}",
+        "",
+        "## Summary",
+        "",
+        f"- `input_count`: `{summary.get('input_count', 0)}`",
+        f"- `extract_count`: `{summary.get('extract_count', 0)}`",
+        f"- `benchmark_count`: `{summary.get('benchmark_count', 0)}`",
+        "",
+        "## Extract Metrics",
+        "",
+        *_render_evaluation_extract_rows(payload),
+        "",
+        "## Benchmark Metrics",
+        "",
+        *_render_evaluation_benchmark_rows(payload),
+        "",
+    ]
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def load_report_payload(input_path: Path) -> BenchmarkOutput | UnifiedExtractionOutput | dict[str, Any]:
     """Load one reportable payload from JSON file.
 
     Args:
@@ -245,10 +340,13 @@ def load_report_payload(input_path: Path) -> BenchmarkOutput | UnifiedExtraction
         UnsupportedReportPayloadError: If JSON shape is not report-compatible.
 
     Returns:
-        BenchmarkOutput | UnifiedExtractionOutput: Parsed payload model.
+        BenchmarkOutput | UnifiedExtractionOutput | dict[str, Any]: Parsed payload model.
 
     """
     raw_payload = json.loads(input_path.read_text(encoding="utf-8"))
+
+    if isinstance(raw_payload, dict) and raw_payload.get("command") == "evaluate":
+        return raw_payload
 
     if isinstance(raw_payload, dict) and raw_payload.get("command") == "benchmark":
         return BenchmarkOutput.model_validate(raw_payload)
@@ -264,11 +362,14 @@ def render_report_markdown(
     *,
     title: str | None = None,
 ) -> str:
-    """Render markdown report from one JSON extract or benchmark payload.
+    """Render markdown report from one JSON extract, benchmark, or evaluation payload.
 
     Args:
-        input_path (Path): Input extract/benchmark JSON file.
+        input_path (Path): Input extract/benchmark/evaluation JSON file.
         title (str | None): Optional report title override.
+
+    Raises:
+        UnsupportedReportPayloadError: If payload command/type is unsupported.
 
     Returns:
         str: Markdown report content.
@@ -277,5 +378,9 @@ def render_report_markdown(
     payload = load_report_payload(input_path)
     if isinstance(payload, BenchmarkOutput):
         return render_benchmark_markdown(payload, title=title)
+    if isinstance(payload, dict) and payload.get("command") == "evaluate":
+        return render_evaluation_markdown(payload, title=title)
+    if isinstance(payload, UnifiedExtractionOutput):
+        return render_extract_markdown(payload, title=title)
 
-    return render_extract_markdown(payload, title=title)
+    raise UnsupportedReportPayloadError

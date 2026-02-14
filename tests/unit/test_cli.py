@@ -506,6 +506,38 @@ def test_evaluate_reads_extract_json_and_emits_metrics(tmp_path, capsys) -> None
     assert metrics["summary"]["extract_count"] == 1
 
 
+def test_report_reads_evaluate_json_and_emits_markdown(tmp_path, capsys) -> None:
+    input_path = tmp_path / "evaluation.json"
+    payload = {
+        "schema_version": "1.0",
+        "command": "evaluate",
+        "summary": {
+            "input_count": 1,
+            "extract_count": 0,
+            "benchmark_count": 1,
+        },
+        "extracts": [],
+        "benchmarks": [
+            {
+                "path": "benchmark.json",
+                "metrics": {
+                    "method_count": 2,
+                    "cross_method_mean_jaccard": 0.45,
+                },
+            },
+        ],
+    }
+    input_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    exit_code = main(["report", "--input", str(input_path), "--output", "-"])
+    assert exit_code == 0
+    rendered = capsys.readouterr().out
+    assert "# Theme Extractor Evaluation Report" in rendered
+    assert "## Summary" in rendered
+    assert "## Benchmark Metrics" in rendered
+    assert "0.4500" in rendered
+
+
 def test_main_applies_proxy_environment_from_flag(tmp_path, monkeypatch) -> None:
     sample = tmp_path / "sample.txt"
     sample.write_text("Bonjour le monde", encoding="utf-8")

@@ -256,3 +256,8 @@ uv run theme-extractor report \
   --input data/out/benchmark_all.json \
   --title "Benchmark Report - Howtos from theme-extractor" \
   --output data/out/report_benchmark.md
+
+uv run theme-extractor report \
+  --input data/out/evaluation_benchmark_all.json \
+  --title "Evaluation Report - Howtos from theme-extractor" \
+  --output data/out/report_evaluation_benchmark_all.md

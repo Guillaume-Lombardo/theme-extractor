@@ -113,6 +113,43 @@ def test_load_report_payload_benchmark_from_file(tmp_path) -> None:
     assert "Method Comparison" in rendered
 
 
+def test_load_report_payload_evaluation_from_file(tmp_path) -> None:
+    input_path = tmp_path / "evaluation.json"
+    input_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "command": "evaluate",
+                "summary": {
+                    "input_count": 1,
+                    "extract_count": 0,
+                    "benchmark_count": 1,
+                },
+                "extracts": [],
+                "benchmarks": [
+                    {
+                        "path": "benchmark.json",
+                        "metrics": {
+                            "method_count": 2,
+                            "cross_method_mean_jaccard": 0.1234,
+                        },
+                    },
+                ],
+            },
+        ),
+        encoding="utf-8",
+    )
+
+    loaded = load_report_payload(input_path)
+    assert isinstance(loaded, dict)
+    assert loaded["command"] == "evaluate"
+
+    rendered = render_report_markdown(input_path)
+    assert "Theme Extractor Evaluation Report" in rendered
+    assert "## Benchmark Metrics" in rendered
+    assert "0.1234" in rendered
+
+
 def test_load_report_payload_raises_for_unsupported_shape(tmp_path) -> None:
     input_path = tmp_path / "invalid.json"
     input_path.write_text(json.dumps({"hello": "world"}), encoding="utf-8")
