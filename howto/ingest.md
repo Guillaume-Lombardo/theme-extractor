@@ -3,7 +3,7 @@
 ## Goal
 
 Create a normalized ingestion JSON payload from local files.
-This command does not index documents into Elasticsearch/OpenSearch.
+Optionally index cleaned documents into Elasticsearch/OpenSearch in the same run.
 
 ## Prerequisites
 
@@ -24,6 +24,7 @@ uv run theme-extractor ingest \
 ```bash
 uv run theme-extractor ingest \
   --input data/raw \
+  --index-backend \
   --reset-index \
   --recursive \
   --cleaning-options all \
@@ -52,6 +53,7 @@ Create your stopwords file yourself (YAML/JSON/CSV/TXT), then pass its path with
 - `--manual-stopwords-file`: extra stopwords from YAML/JSON/CSV/TXT.
 - `--auto-stopwords*`: corpus-driven stopwords generation.
 - `--reset-index`: reset backend index (`--backend-url` + `--index`) before ingestion.
+- `--index-backend`: bulk-index cleaned/filtered content into backend (`content` + `tokens` extraction fields).
 - `--pdf-ocr-fallback`: OCR fallback for scanned PDFs when embedded text is too low.
 - `--pdf-ocr-languages`: OCR language codes (default `fra+eng`).
 - `--pdf-ocr-dpi`: OCR rendering DPI (default `200`).

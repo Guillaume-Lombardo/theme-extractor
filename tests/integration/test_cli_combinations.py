@@ -109,7 +109,9 @@ class _EmptyBackendStub:
 
 
 def test_benchmark_supports_combined_methods_focus_and_backend(monkeypatch, capsys) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub()
+    )
 
     exit_code = main(
         [
@@ -140,7 +142,9 @@ def test_extract_supports_strict_offline_policy_and_elasticsearch_backend(
     monkeypatch,
     capsys,
 ) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub()
+    )
 
     exit_code = main(
         [
@@ -169,7 +173,9 @@ def test_extract_supports_strict_offline_policy_and_elasticsearch_backend(
 
 
 def test_extract_bertopic_supports_matrix_flags_and_notes(monkeypatch, capsys) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub()
+    )
     monkeypatch.setattr(
         "theme_extractor.extraction.bertopic._make_embeddings_if_enabled",
         lambda **_kwargs: (None, "embedding fallback"),
@@ -212,7 +218,9 @@ def test_extract_bertopic_supports_matrix_flags_and_notes(monkeypatch, capsys) -
 
 
 def test_extract_llm_strict_offline_uses_fallback(monkeypatch, capsys) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub()
+    )
 
     exit_code = main(
         [
@@ -236,7 +244,9 @@ def test_extract_llm_strict_offline_uses_fallback(monkeypatch, capsys) -> None:
 
 
 def test_extract_llm_preload_mode_provider_path(monkeypatch, capsys) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub()
+    )
     monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
     monkeypatch.setattr(
         "theme_extractor.extraction.llm._extract_keywords_with_openai",
@@ -269,7 +279,9 @@ def test_extract_llm_preload_mode_provider_path(monkeypatch, capsys) -> None:
 
 
 def test_extract_llm_preload_mode_runtime_failure_falls_back(monkeypatch, capsys) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub()
+    )
     monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
     monkeypatch.setattr(
         "theme_extractor.extraction.llm._extract_keywords_with_openai",
@@ -297,7 +309,9 @@ def test_extract_llm_preload_mode_runtime_failure_falls_back(monkeypatch, capsys
 
 
 def test_extract_llm_empty_corpus_with_topic_focus(monkeypatch, capsys) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _EmptyBackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _EmptyBackendStub()
+    )
 
     exit_code = main(
         [
@@ -317,7 +331,9 @@ def test_extract_llm_empty_corpus_with_topic_focus(monkeypatch, capsys) -> None:
 
 
 def test_extract_bertopic_local_models_dir_option(monkeypatch, capsys, tmp_path) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub()
+    )
     local_models_dir = tmp_path / "models"
     (local_models_dir / "bge-m3").mkdir(parents=True)
 
@@ -372,7 +388,9 @@ def test_extract_bertopic_local_models_dir_option(monkeypatch, capsys, tmp_path)
 
 
 def test_extract_keybert_local_models_dir_option(monkeypatch, capsys, tmp_path) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub()
+    )
     local_models_dir = tmp_path / "models"
     (local_models_dir / "bge-m3").mkdir(parents=True)
     captured: dict[str, str] = {}

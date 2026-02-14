@@ -32,6 +32,7 @@ from theme_extractor.extraction.embedding_cache import (
     store_embeddings_in_cache,
 )
 from theme_extractor.extraction.utils import resolve_embedding_model_name
+from theme_extractor.ingestion.cleaning import get_default_stopwords
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -55,7 +56,11 @@ _SEARCH_SIZE_LIMIT_NOTE = f"BERTopic search_size was capped to {_SEARCH_SIZE_LIM
 _DEFAULT_LOCAL_MODELS_DIR = Path("data/models")
 _DEFAULT_EMBEDDING_CACHE_DIR = Path("data/cache/embeddings")
 _NO_TOPICS_AFTER_FILTER_NOTE = "BERTopic produced no topics after min_topic_size/topic filtering."
+_RELAXED_TOPIC_SIZE_NOTE = (
+    "BERTopic relaxed min_topic_size to 1 because the configured threshold removed all clusters."
+)
 _EMBEDDING_CACHE_HIT_NOTE = "BERTopic embeddings loaded from local cache."
+_KEYWORD_STOPWORDS = get_default_stopwords()
 
 
 class BertopicExtractionConfig(BaseModel):
@@ -383,13 +388,14 @@ def _set_empty_output(
     return output
 
 
-def _build_topics_from_clusters(
+def _build_topics_from_clusters(  # noqa: PLR0913
     *,
     labels: NDArray,
     sparse_tfidf: csr_matrix,
     feature_names: NDArray,
     request: BertopicRunRequest,
     document_ids: list[str],
+    min_topic_size: int,
 ) -> tuple[list[TopicResult], dict[int, int]]:
     clusters = sorted({int(label) for label in labels if int(label) >= 0})
     topics: list[TopicResult] = []
@@ -399,14 +405,14 @@ def _build_topics_from_clusters(
     for cluster_id in clusters:
         doc_indexes = np.where(labels == cluster_id)[0]
         size = int(doc_indexes.size)
-        if size < max(1, request.bertopic_config.min_topic_size):
+        if size < max(1, min_topic_size):
             continue
         mean_tfidf = np.asarray(sparse_tfidf[doc_indexes].mean(axis=0)).ravel()
         top_indexes = np.argsort(mean_tfidf)[::-1][: max(1, request.baseline_config.top_n)]
         keywords = [
             TopicKeyword(term=str(feature_names[i]), score=float(mean_tfidf[i]))
             for i in top_indexes
-            if float(mean_tfidf[i]) > 0.0
+            if float(mean_tfidf[i]) > 0.0 and str(feature_names[i]).strip().lower() not in _KEYWORD_STOPWORDS
         ]
         if not keywords:
             continue
@@ -521,7 +527,20 @@ def run_bertopic_method(
         feature_names=feature_names,
         request=request,
         document_ids=document_ids,
+        min_topic_size=request.bertopic_config.min_topic_size,
     )
+    if not topics and np.any(labels >= 0):
+        topics, topic_id_map = _build_topics_from_clusters(
+            labels=labels,
+            sparse_tfidf=sparse_tfidf,
+            feature_names=feature_names,
+            request=request,
+            document_ids=document_ids,
+            min_topic_size=1,
+        )
+        if topics:
+            output.notes.append(_RELAXED_TOPIC_SIZE_NOTE)
+
     if not topics:
         output.notes.append(_NO_TOPICS_AFTER_FILTER_NOTE)
 

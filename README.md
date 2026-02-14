@@ -32,14 +32,14 @@ uv sync --group elasticsearch
 uv sync --group ingestion
 uv run theme-extractor doctor --output data/out/doctor.json
 uv run theme-extractor ingest --input data/raw --output data/out/ingest.json
-uv run python docker/index_corpus.py \
+uv run theme-extractor ingest \
   --input data/raw \
-  --backend-url http://localhost:9200 \
-  --index theme_extractor \
+  --reset-index \
+  --index-backend \
   --cleaning-options all \
   --default-stopwords \
   --manual-stopwords "de,le,la,the,and,of" \
-  --reset-index
+  --output data/out/ingest_indexed.json
 uv run theme-extractor benchmark \
   --methods baseline_tfidf,terms,significant_terms,keybert,bertopic \
   --backend elasticsearch \
@@ -55,7 +55,7 @@ uv run theme-extractor report \
   --output data/out/report_benchmark.md
 ```
 
-`ingest` generates a local JSON QA payload; extraction methods query backend indexes. Use `docker/index_corpus.py` to index cleaned/filtered text into Elasticsearch/OpenSearch.
+`ingest` always generates a local JSON QA payload; with `--index-backend`, it also indexes cleaned/filtered text into Elasticsearch/OpenSearch.
 
 Run `significant_text` separately with `--agg-field content` (see [`/howto/benchmark.md`](howto/benchmark.md)).
 
@@ -99,6 +99,14 @@ Detailed operations are intentionally kept in `/howto`:
 - [`/howto/troubleshooting.md`](howto/troubleshooting.md): common failures and fixes
 
 Sphinx documentation is available under `/docs` (includes README, how-to pages, and API docstrings).
+
+CLI code is now organized under `src/theme_extractor/cli/`:
+
+- `__init__.py`: CLI entrypoint (`main`)
+- `argument_parser.py`: parser and flags
+- `command_handlers.py`: command execution logic
+- `ingest_backend_indexing.py`: ingest-side backend indexing helpers
+- `common_runtime.py`: shared runtime helpers
 
 Build locally:
 

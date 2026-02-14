@@ -125,7 +125,9 @@ def test_ingest_end2end_no_streaming_mode(tmp_path) -> None:
 
 
 def test_extract_end2end_generates_json_output_file(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub()
+    )
 
     output_path = tmp_path / "extract-e2e.json"
 
@@ -148,7 +150,9 @@ def test_extract_end2end_generates_json_output_file(tmp_path, monkeypatch) -> No
 
 
 def test_benchmark_end2end_generates_json_output_file(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub()
+    )
 
     output_path = tmp_path / "benchmark-e2e.json"
 
@@ -172,7 +176,9 @@ def test_benchmark_end2end_generates_json_output_file(tmp_path, monkeypatch) -> 
 
 
 def test_extract_bertopic_end2end_generates_json_output_file(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub()
+    )
 
     output_path = tmp_path / "extract-bertopic-e2e.json"
     exit_code = main(
@@ -199,7 +205,9 @@ def test_extract_bertopic_end2end_generates_json_output_file(tmp_path, monkeypat
 
 
 def test_extract_bertopic_end2end_empty_corpus_branch(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _EmptyBackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _EmptyBackendStub()
+    )
 
     output_path = tmp_path / "extract-bertopic-empty-e2e.json"
     exit_code = main(
@@ -221,7 +229,9 @@ def test_extract_bertopic_end2end_empty_corpus_branch(tmp_path, monkeypatch) -> 
 
 
 def test_extract_bertopic_end2end_fallback_notes(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub()
+    )
 
     output_path = tmp_path / "extract-bertopic-fallback-e2e.json"
     exit_code = main(
@@ -250,7 +260,9 @@ def test_extract_bertopic_end2end_fallback_notes(tmp_path, monkeypatch) -> None:
 
 
 def test_extract_llm_end2end_strict_offline(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub()
+    )
 
     output_path = tmp_path / "extract-llm-strict-e2e.json"
     exit_code = main(
@@ -276,7 +288,9 @@ def test_extract_llm_end2end_strict_offline(tmp_path, monkeypatch) -> None:
 
 
 def test_extract_llm_end2end_provider_path(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub()
+    )
     monkeypatch.setenv("OPENAI_API_KEY", "fake-key")
     monkeypatch.setattr(
         "theme_extractor.extraction.llm._extract_keywords_with_openai",
@@ -323,7 +337,9 @@ def test_doctor_end2end_generates_json_output_file(tmp_path) -> None:
 
 
 def test_extract_llm_end2end_empty_corpus(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _EmptyBackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _EmptyBackendStub()
+    )
 
     output_path = tmp_path / "extract-llm-empty-e2e.json"
     exit_code = main(
@@ -346,7 +362,9 @@ def test_extract_llm_end2end_empty_corpus(tmp_path, monkeypatch) -> None:
 
 
 def test_extract_llm_end2end_empty_corpus_with_document_focus(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _EmptyBackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _EmptyBackendStub()
+    )
 
     output_path = tmp_path / "extract-llm-empty-doc-focus-e2e.json"
     exit_code = main(
@@ -368,7 +386,9 @@ def test_extract_llm_end2end_empty_corpus_with_document_focus(tmp_path, monkeypa
 
 
 def test_extract_llm_end2end_preload_without_credentials_fallback(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub()
+    )
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
     output_path = tmp_path / "extract-llm-no-cred-e2e.json"
@@ -429,7 +449,9 @@ def test_llm_internal_openai_parser_path(monkeypatch) -> None:
 
 
 def test_report_end2end_from_extract_output(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub()
+    )
 
     extract_path = tmp_path / "extract.json"
     report_path = tmp_path / "report.md"
@@ -464,7 +486,9 @@ def test_report_end2end_from_extract_output(tmp_path, monkeypatch) -> None:
 
 
 def test_evaluate_end2end_from_extract_output(tmp_path, monkeypatch) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub()
+    )
 
     extract_path = tmp_path / "extract.json"
     evaluation_path = tmp_path / "evaluation.json"

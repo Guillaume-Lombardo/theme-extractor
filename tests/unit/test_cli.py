@@ -84,7 +84,7 @@ def test_main_without_subcommand_returns_1(capsys) -> None:
 
 
 def test_extract_to_stdout_returns_normalized_topics_payload(capsys, monkeypatch) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", _backend_stub)
+    monkeypatch.setattr("theme_extractor.cli.command_handlers.build_search_backend", _backend_stub)
     exit_code = main(["extract", "--method", "keybert", "--focus", "topics"])
 
     assert exit_code == 0
@@ -99,7 +99,7 @@ def test_extract_to_stdout_returns_normalized_topics_payload(capsys, monkeypatch
 
 
 def test_extract_with_document_focus_emits_document_topics(capsys, monkeypatch) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", _backend_stub)
+    monkeypatch.setattr("theme_extractor.cli.command_handlers.build_search_backend", _backend_stub)
     exit_code = main(
         [
             "extract",
@@ -120,7 +120,7 @@ def test_extract_with_document_focus_emits_document_topics(capsys, monkeypatch) 
 
 
 def test_extract_bertopic_accepts_embedding_cache_flags(capsys, monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", _backend_stub)
+    monkeypatch.setattr("theme_extractor.cli.command_handlers.build_search_backend", _backend_stub)
     cache_dir = tmp_path / "emb-cache"
     exit_code = main(
         [
@@ -182,7 +182,7 @@ def test_ingest_reset_index_triggers_backend_reset(tmp_path, capsys, monkeypatch
         captured["backend_url"] = backend_url
         captured["index"] = index
 
-    monkeypatch.setattr("theme_extractor.cli._reset_backend_index", _fake_reset_backend_index)
+    monkeypatch.setattr("theme_extractor.cli.command_handlers.reset_backend_index", _fake_reset_backend_index)
 
     exit_code = main(
         [
@@ -207,6 +207,62 @@ def test_ingest_reset_index_triggers_backend_reset(tmp_path, capsys, monkeypatch
     payload = json.loads(capsys.readouterr().out)
     assert payload["runtime"]["reset_index"]["requested"] is True
     assert payload["runtime"]["reset_index"]["applied"] is True
+
+
+def test_ingest_index_backend_triggers_bulk_indexing(tmp_path, capsys, monkeypatch) -> None:
+    sample = tmp_path / "sample.txt"
+    sample.write_text("Bonjour le monde", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def _fake_build_ingest_index_documents(
+        *,
+        args: object,
+        result_payload: dict[str, object],
+        stopwords: set[str],
+    ) -> list[dict[str, object]]:
+        _ = args
+        captured["stopwords"] = stopwords
+        documents = result_payload.get("documents")
+        captured["documents_count"] = len(documents) if isinstance(documents, list) else 0
+        return [{"_id": "doc-1", "_source": {"content": "bonjour monde"}}]
+
+    def _fake_bulk_index_documents(*, backend_url: str, index: str, docs):
+        captured["backend_url"] = backend_url
+        captured["index"] = index
+        captured["bulk_docs"] = docs
+
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_ingest_index_documents",
+        _fake_build_ingest_index_documents,
+    )
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.bulk_index_documents", _fake_bulk_index_documents
+    )
+
+    exit_code = main(
+        [
+            "ingest",
+            "--input",
+            str(sample),
+            "--index-backend",
+            "--backend-url",
+            "http://localhost:9201",
+            "--index",
+            "theme_extractor_test",
+            "--output",
+            "-",
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["runtime"]["index_backend"]["requested"] is True
+    assert payload["runtime"]["index_backend"]["applied"] is True
+    assert payload["runtime"]["index_backend"]["indexed_documents"] == 1
+    assert captured["backend_url"] == "http://localhost:9201"
+    assert captured["index"] == "theme_extractor_test"
+    assert captured["documents_count"] == 1
+    assert captured["bulk_docs"] == [{"_id": "doc-1", "_source": {"content": "bonjour monde"}}]
 
 
 def test_ingest_accepts_none_cleaning_option(tmp_path, capsys) -> None:
@@ -292,7 +348,7 @@ def test_benchmark_rejects_empty_methods_list() -> None:
 
 
 def test_benchmark_ignores_empty_method_tokens(capsys, monkeypatch) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", _backend_stub)
+    monkeypatch.setattr("theme_extractor.cli.command_handlers.build_search_backend", _backend_stub)
     exit_code = main(["benchmark", "--methods", ",,llm,,", "--focus", "topics"])
 
     assert exit_code == 0
@@ -301,7 +357,7 @@ def test_benchmark_ignores_empty_method_tokens(capsys, monkeypatch) -> None:
 
 
 def test_benchmark_deduplicates_methods_and_outputs_json(capsys, monkeypatch) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", _backend_stub)
+    monkeypatch.setattr("theme_extractor.cli.command_handlers.build_search_backend", _backend_stub)
     exit_code = main(
         [
             "benchmark",
@@ -325,7 +381,7 @@ def test_benchmark_deduplicates_methods_and_outputs_json(capsys, monkeypatch) ->
 
 
 def test_benchmark_with_topic_focus_keeps_document_topics_none(capsys, monkeypatch) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", _backend_stub)
+    monkeypatch.setattr("theme_extractor.cli.command_handlers.build_search_backend", _backend_stub)
     exit_code = main(["benchmark", "--methods", "llm", "--focus", "topics"])
 
     assert exit_code == 0
@@ -360,7 +416,9 @@ def test_doctor_backend_check_reports_error(monkeypatch, capsys) -> None:
             _ = body
             raise _BackendUnavailableError
 
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _FailingBackend())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _FailingBackend()
+    )
 
     exit_code = main(["doctor", "--check-backend", "--output", "-"])
     assert exit_code == 0
@@ -448,6 +506,38 @@ def test_evaluate_reads_extract_json_and_emits_metrics(tmp_path, capsys) -> None
     assert metrics["summary"]["extract_count"] == 1
 
 
+def test_report_reads_evaluate_json_and_emits_markdown(tmp_path, capsys) -> None:
+    input_path = tmp_path / "evaluation.json"
+    payload = {
+        "schema_version": "1.0",
+        "command": "evaluate",
+        "summary": {
+            "input_count": 1,
+            "extract_count": 0,
+            "benchmark_count": 1,
+        },
+        "extracts": [],
+        "benchmarks": [
+            {
+                "path": "benchmark.json",
+                "metrics": {
+                    "method_count": 2,
+                    "cross_method_mean_jaccard": 0.45,
+                },
+            },
+        ],
+    }
+    input_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    exit_code = main(["report", "--input", str(input_path), "--output", "-"])
+    assert exit_code == 0
+    rendered = capsys.readouterr().out
+    assert "# Theme Extractor Evaluation Report" in rendered
+    assert "## Summary" in rendered
+    assert "## Benchmark Metrics" in rendered
+    assert "0.4500" in rendered
+
+
 def test_main_applies_proxy_environment_from_flag(tmp_path, monkeypatch) -> None:
     sample = tmp_path / "sample.txt"
     sample.write_text("Bonjour le monde", encoding="utf-8")
@@ -485,7 +575,7 @@ def test_main_applies_proxy_environment_from_flag(tmp_path, monkeypatch) -> None
 
 
 def test_extract_uses_proxy_url_default_from_environment(monkeypatch, capsys) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", _backend_stub)
+    monkeypatch.setattr("theme_extractor.cli.command_handlers.build_search_backend", _backend_stub)
     monkeypatch.setenv("THEME_EXTRACTOR_PROXY_URL", _PROXY_URL)
     original_proxy_values = {key: os.environ.get(key) for key in _PROXY_ENV_KEYS}
 
