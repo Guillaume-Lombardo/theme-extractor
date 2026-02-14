@@ -258,7 +258,7 @@ def _render_evaluation_extract_rows(payload: dict[str, Any]) -> list[str]:
         rows.append(
             f"| {extract.get('path', '-')} | {metrics.get('method', '-')} | "
             f"{metrics.get('topic_count', 0)} | {metrics.get('document_topic_count', 0)} | "
-            f"{float(metrics.get('avg_keywords_per_topic', 0.0)):.4f} | "
+            f"{_fmt_score(metrics.get('avg_keywords_per_topic'))} | "
             f"{_fmt_score(metrics.get('topic_coherence_proxy'))} |",
         )
     if len(rows) == _EMPTY_TABLE_DATA_ROW_INDEX:
@@ -319,7 +319,7 @@ def _render_evaluation_per_method_rows(metrics: dict[str, Any]) -> list[str]:
             f"| {method_name} | "
             f"{method_metrics.get('topic_count', 0)} | "
             f"{method_metrics.get('document_topic_count', 0)} | "
-            f"{float(method_metrics.get('avg_keywords_per_topic', 0.0)):.4f} | "
+            f"{_fmt_score(method_metrics.get('avg_keywords_per_topic'))} | "
             f"{_fmt_score(method_metrics.get('topic_coherence_proxy'))} | "
             f"{_fmt_score(method_metrics.get('inter_topic_diversity'))} | "
             f"{_fmt_score(method_metrics.get('inter_topic_mean_jaccard'))} |",
