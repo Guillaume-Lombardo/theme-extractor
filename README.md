@@ -29,6 +29,7 @@ Prerequisite: start one backend first (local Docker guide: [`/howto/docker-local
 
 ```bash
 uv sync --group elasticsearch
+uv sync --group ingestion
 uv run theme-extractor doctor --output data/out/doctor.json
 uv run theme-extractor ingest --input data/raw --output data/out/ingest.json
 uv run python docker/index_corpus.py \
@@ -122,6 +123,16 @@ Important variable groups:
 - `.msg` extraction (`THEME_EXTRACTOR_MSG_*`) for metadata and attachment policy
 - local model resolution (`THEME_EXTRACTOR_LOCAL_MODELS_DIR`)
 - BERTopic embedding cache (`THEME_EXTRACTOR_BERTOPIC_EMBEDDING_CACHE_*`)
+
+## Dependency Groups
+
+Install optional runtime groups with `uv`:
+
+```bash
+uv sync --group ingestion
+```
+
+`ingestion` includes parsers for PDF/Office/MSG formats (`pymupdf`, `python-docx`, `openpyxl`, `python-pptx`, `extract-msg`).
 
 ## Project Governance
 

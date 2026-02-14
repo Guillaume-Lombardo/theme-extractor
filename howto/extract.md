@@ -1,6 +1,7 @@
 # How To Run Extraction and Interpret Results
 
 ## Goal
+
 Run one method with `extract` and read the unified topic output.
 
 ## Baseline TF-IDF

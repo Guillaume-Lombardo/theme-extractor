@@ -1,8 +1,15 @@
 # How To Ingest a Corpus
 
 ## Goal
+
 Create a normalized ingestion JSON payload from local files.
 This command does not index documents into Elasticsearch/OpenSearch.
+
+## Prerequisites
+
+```bash
+uv sync --group ingestion
+```
 
 ## Minimal Run
 
@@ -17,6 +24,7 @@ uv run theme-extractor ingest \
 ```bash
 uv run theme-extractor ingest \
   --input data/raw \
+  --reset-index \
   --recursive \
   --cleaning-options all \
   --manual-stopwords "de,le,la,the,and,of" \
@@ -43,6 +51,7 @@ Create your stopwords file yourself (YAML/JSON/CSV/TXT), then pass its path with
 - `--manual-stopwords`: inline comma-separated stopwords.
 - `--manual-stopwords-file`: extra stopwords from YAML/JSON/CSV/TXT.
 - `--auto-stopwords*`: corpus-driven stopwords generation.
+- `--reset-index`: reset backend index (`--backend-url` + `--index`) before ingestion.
 - `--pdf-ocr-fallback`: OCR fallback for scanned PDFs when embedded text is too low.
 - `--pdf-ocr-languages`: OCR language codes (default `fra+eng`).
 - `--pdf-ocr-dpi`: OCR rendering DPI (default `200`).
@@ -64,6 +73,6 @@ Check these fields in `data/out/ingest.json`:
 ## Common Pitfalls
 
 - Missing parser dependency for PDF/Office formats:
-  - install: `uv pip install pymupdf python-docx openpyxl python-pptx extract-msg`
+  - install: `uv sync --group ingestion`
 - Empty ingestion:
   - verify supported file extensions and `--input` path.

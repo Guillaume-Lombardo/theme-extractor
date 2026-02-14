@@ -1,6 +1,7 @@
 # How To Benchmark Methods and Choose a Strategy
 
 ## Goal
+
 Run several methods in one command and compare outputs on the same corpus slice.
 
 ## Example Run

@@ -1,12 +1,14 @@
 # How To Run Local Docker Backends
 
 ## Goal
+
 Start Elasticsearch or OpenSearch quickly to test ingestion/extraction workflows on local files.
 
 ## Prerequisites
 
 ```bash
 uv sync --group elasticsearch
+uv sync --group ingestion
 # Optional alternative:
 # uv sync --group opensearch
 ```
@@ -14,7 +16,7 @@ uv sync --group elasticsearch
 For office/pdf ingestion support:
 
 ```bash
-uv pip install pymupdf python-docx openpyxl python-pptx extract-msg
+uv sync --group ingestion
 ```
 
 ## Elasticsearch Stack
