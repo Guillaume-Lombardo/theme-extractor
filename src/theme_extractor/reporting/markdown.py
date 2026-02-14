@@ -259,7 +259,7 @@ def _render_evaluation_extract_rows(payload: dict[str, Any]) -> list[str]:
             f"| {extract.get('path', '-')} | {metrics.get('method', '-')} | "
             f"{metrics.get('topic_count', 0)} | {metrics.get('document_topic_count', 0)} | "
             f"{float(metrics.get('avg_keywords_per_topic', 0.0)):.4f} | "
-            f"{float(metrics.get('topic_coherence_proxy', 0.0)):.4f} |",
+            f"{_fmt_score(metrics.get('topic_coherence_proxy'))} |",
         )
     if len(rows) == _EMPTY_TABLE_DATA_ROW_INDEX:
         rows.append("| - | - | - | - | - | - |")
