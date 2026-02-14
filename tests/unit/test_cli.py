@@ -209,6 +209,60 @@ def test_ingest_reset_index_triggers_backend_reset(tmp_path, capsys, monkeypatch
     assert payload["runtime"]["reset_index"]["applied"] is True
 
 
+def test_ingest_index_backend_triggers_bulk_indexing(tmp_path, capsys, monkeypatch) -> None:
+    sample = tmp_path / "sample.txt"
+    sample.write_text("Bonjour le monde", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def _fake_build_ingest_index_documents(
+        *,
+        args: object,
+        result_payload: dict[str, object],
+        stopwords: set[str],
+    ) -> list[dict[str, object]]:
+        _ = args
+        captured["stopwords"] = stopwords
+        documents = result_payload.get("documents")
+        captured["documents_count"] = len(documents) if isinstance(documents, list) else 0
+        return [{"_id": "doc-1", "_source": {"content": "bonjour monde"}}]
+
+    def _fake_bulk_index_documents(*, backend_url: str, index: str, docs):
+        captured["backend_url"] = backend_url
+        captured["index"] = index
+        captured["bulk_docs"] = docs
+
+    monkeypatch.setattr(
+        "theme_extractor.cli._build_ingest_index_documents",
+        _fake_build_ingest_index_documents,
+    )
+    monkeypatch.setattr("theme_extractor.cli._bulk_index_documents", _fake_bulk_index_documents)
+
+    exit_code = main(
+        [
+            "ingest",
+            "--input",
+            str(sample),
+            "--index-backend",
+            "--backend-url",
+            "http://localhost:9201",
+            "--index",
+            "theme_extractor_test",
+            "--output",
+            "-",
+        ],
+    )
+
+    assert exit_code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["runtime"]["index_backend"]["requested"] is True
+    assert payload["runtime"]["index_backend"]["applied"] is True
+    assert payload["runtime"]["index_backend"]["indexed_documents"] == 1
+    assert captured["backend_url"] == "http://localhost:9201"
+    assert captured["index"] == "theme_extractor_test"
+    assert captured["documents_count"] == 1
+    assert captured["bulk_docs"] == [{"_id": "doc-1", "_source": {"content": "bonjour monde"}}]
+
+
 def test_ingest_accepts_none_cleaning_option(tmp_path, capsys) -> None:
     sample = tmp_path / "sample.txt"
     sample.write_text("Résumé !!!", encoding="utf-8")

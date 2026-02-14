@@ -98,6 +98,11 @@ def test_run_bertopic_builds_topics_and_doc_links() -> None:
     )
 
     assert output.topics
+    assert all(
+        keyword.term.lower() != "to"
+        for topic in output.topics
+        for keyword in topic.keywords
+    )
     assert output.document_topics
     assert "BERTopic strategy executed." in output.notes
 
@@ -174,7 +179,7 @@ def test_run_bertopic_caps_search_size_for_memory() -> None:
     assert _EXPECTED_BERTOPIC_CAP_NOTE in output.notes
 
 
-def test_run_bertopic_adds_note_when_topics_filtered_out() -> None:
+def test_run_bertopic_relaxes_min_topic_size_when_all_clusters_filtered_out() -> None:
     backend = _BackendStub(
         search_response={
             "hits": {
@@ -202,8 +207,11 @@ def test_run_bertopic_adds_note_when_topics_filtered_out() -> None:
         ),
         output=_make_output(focus=OutputFocus.BOTH),
     )
-    assert output.topics == []
-    assert "BERTopic produced no topics after min_topic_size/topic filtering." in output.notes
+    assert output.topics
+    assert (
+        "BERTopic relaxed min_topic_size to 1 because the configured threshold removed all clusters."
+        in output.notes
+    )
 
 
 def test_make_embeddings_uses_local_model_alias_from_data_models(tmp_path, monkeypatch) -> None:
