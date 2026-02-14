@@ -15,7 +15,7 @@ sys.path.insert(0, str(_SRC_DIR))
 
 project = "theme-extractor"
 author = "theme-extractor contributors"
-release = "0.1.1"
+release = "0.2.0"
 
 extensions = [
     "myst_parser",

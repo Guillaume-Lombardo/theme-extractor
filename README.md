@@ -93,6 +93,7 @@ Detailed operations are intentionally kept in `/howto`:
 - [`/howto/ingest.md`](howto/ingest.md): ingestion, cleaning, stopwords, streaming mode
 - [`/howto/extract.md`](howto/extract.md): single-method extraction and interpretation
 - [`/howto/benchmark.md`](howto/benchmark.md): multi-method comparison workflow
+- [`/howto/evaluation.md`](howto/evaluation.md): evaluation command, Jaccard, and metric interpretation
 - [`/howto/report.md`](howto/report.md): markdown reporting workflow
 - [`/howto/release.md`](howto/release.md): PyPI/TestPyPI release workflow
 - [`/howto/docker-local.md`](howto/docker-local.md): local Docker stacks (Elasticsearch/OpenSearch)
