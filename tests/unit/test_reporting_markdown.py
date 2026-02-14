@@ -132,6 +132,16 @@ def test_load_report_payload_evaluation_from_file(tmp_path) -> None:
                         "metrics": {
                             "method_count": 2,
                             "cross_method_mean_jaccard": 0.1234,
+                            "per_method": {
+                                "terms": {
+                                    "topic_count": 10,
+                                    "document_topic_count": 0,
+                                    "avg_keywords_per_topic": 1.0,
+                                    "topic_coherence_proxy": 1.0,
+                                    "inter_topic_diversity": 1.0,
+                                    "inter_topic_mean_jaccard": 0.0,
+                                },
+                            },
                         },
                     },
                 ],
@@ -147,6 +157,8 @@ def test_load_report_payload_evaluation_from_file(tmp_path) -> None:
     rendered = render_report_markdown(input_path)
     assert "Theme Extractor Evaluation Report" in rendered
     assert "## Benchmark Metrics" in rendered
+    assert "## Benchmark Method Details" in rendered
+    assert "terms" in rendered
     assert "0.1234" in rendered
 
 

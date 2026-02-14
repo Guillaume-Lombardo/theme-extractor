@@ -5,6 +5,7 @@ This folder contains practical command recipes to run the package end-to-end.
 - `ingest.md`: build an ingestion output from local files.
 - `extract.md`: run one extraction strategy and interpret the output.
 - `benchmark.md`: compare multiple strategies and choose a candidate.
+- `evaluation.md`: run quantitative evaluation and interpret metrics (including Jaccard).
 - `report.md`: generate and read markdown reports from JSON outputs.
 - `release.md`: publish package distributions to TestPyPI/PyPI.
 - `docker-local.md`: start/stop local Elasticsearch or OpenSearch stacks.

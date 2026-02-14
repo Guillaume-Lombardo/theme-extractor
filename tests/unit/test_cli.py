@@ -523,6 +523,16 @@ def test_report_reads_evaluate_json_and_emits_markdown(tmp_path, capsys) -> None
                 "metrics": {
                     "method_count": 2,
                     "cross_method_mean_jaccard": 0.45,
+                    "per_method": {
+                        "bertopic": {
+                            "topic_count": 3,
+                            "document_topic_count": 8,
+                            "avg_keywords_per_topic": 25.0,
+                            "topic_coherence_proxy": 0.3,
+                            "inter_topic_diversity": 0.9,
+                            "inter_topic_mean_jaccard": 0.1,
+                        },
+                    },
                 },
             },
         ],
@@ -535,6 +545,8 @@ def test_report_reads_evaluate_json_and_emits_markdown(tmp_path, capsys) -> None
     assert "# Theme Extractor Evaluation Report" in rendered
     assert "## Summary" in rendered
     assert "## Benchmark Metrics" in rendered
+    assert "## Benchmark Method Details" in rendered
+    assert "bertopic" in rendered
     assert "0.4500" in rendered
 
 

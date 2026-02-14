@@ -14,6 +14,7 @@ _generated/README
 _generated/ingest
 _generated/extract
 _generated/benchmark
+_generated/evaluation
 _generated/report
 _generated/docker-local
 _generated/troubleshooting

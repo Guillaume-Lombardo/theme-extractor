@@ -258,8 +258,8 @@ def _render_evaluation_extract_rows(payload: dict[str, Any]) -> list[str]:
         rows.append(
             f"| {extract.get('path', '-')} | {metrics.get('method', '-')} | "
             f"{metrics.get('topic_count', 0)} | {metrics.get('document_topic_count', 0)} | "
-            f"{float(metrics.get('avg_keywords_per_topic', 0.0)):.4f} | "
-            f"{float(metrics.get('topic_coherence_proxy', 0.0)):.4f} |",
+            f"{_fmt_score(metrics.get('avg_keywords_per_topic'))} | "
+            f"{_fmt_score(metrics.get('topic_coherence_proxy'))} |",
         )
     if len(rows) == _EMPTY_TABLE_DATA_ROW_INDEX:
         rows.append("| - | - | - | - | - | - |")
@@ -295,6 +295,40 @@ def _render_evaluation_benchmark_rows(payload: dict[str, Any]) -> list[str]:
     return rows
 
 
+def _render_evaluation_per_method_rows(metrics: dict[str, Any]) -> list[str]:
+    """Render per-method rows from one benchmark evaluation metrics payload.
+
+    Args:
+        metrics (dict[str, Any]): Benchmark metrics object.
+
+    Returns:
+        list[str]: Markdown table rows.
+
+    """
+    rows = [
+        "| Method | Topics | Documents | Avg Keywords/Topic | Coherence | Diversity | Mean Jaccard |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    per_method = metrics.get("per_method", {})
+    if not isinstance(per_method, dict):
+        per_method = {}
+    for method_name, method_metrics in per_method.items():
+        if not isinstance(method_metrics, dict):
+            continue
+        rows.append(
+            f"| {method_name} | "
+            f"{method_metrics.get('topic_count', 0)} | "
+            f"{method_metrics.get('document_topic_count', 0)} | "
+            f"{_fmt_score(method_metrics.get('avg_keywords_per_topic'))} | "
+            f"{_fmt_score(method_metrics.get('topic_coherence_proxy'))} | "
+            f"{_fmt_score(method_metrics.get('inter_topic_diversity'))} | "
+            f"{_fmt_score(method_metrics.get('inter_topic_mean_jaccard'))} |",
+        )
+    if len(rows) == _EMPTY_TABLE_DATA_ROW_INDEX:
+        rows.append("| - | - | - | - | - | - | - |")
+    return rows
+
+
 def render_evaluation_markdown(payload: dict[str, Any], *, title: str | None = None) -> str:
     """Render one evaluation output as markdown report.
 
@@ -327,6 +361,23 @@ def render_evaluation_markdown(payload: dict[str, Any], *, title: str | None = N
         *_render_evaluation_benchmark_rows(payload),
         "",
     ]
+    benchmarks = payload.get("benchmarks", [])
+    if isinstance(benchmarks, list) and benchmarks:
+        lines.extend(["## Benchmark Method Details", ""])
+        for benchmark in benchmarks:
+            if not isinstance(benchmark, dict):
+                continue
+            metrics = benchmark.get("metrics", {})
+            if not isinstance(metrics, dict):
+                continue
+            lines.extend(
+                [
+                    f"### `{benchmark.get('path', '-')}`",
+                    "",
+                    *_render_evaluation_per_method_rows(metrics),
+                    "",
+                ],
+            )
     return "\n".join(lines).rstrip() + "\n"
 
 

@@ -2,7 +2,7 @@
 
 ## Goal
 
-Convert extraction/benchmark JSON output into markdown for easier sharing.
+Convert extraction/benchmark/evaluation JSON output into markdown for easier sharing.
 
 ## From `extract` output
 
@@ -17,8 +17,17 @@ uv run theme-extractor report \
 ```bash
 uv run theme-extractor report \
   --input data/out/benchmark_all.json \
-  --title "Benchmark Report - DSJ Corpus" \
+  --title "Benchmark Report - Corpus thematisation" \
   --output data/out/report_benchmark.md
+```
+
+## From `evaluate` output
+
+```bash
+uv run theme-extractor report \
+  --input data/out/evaluation_benchmark_all.json \
+  --title "Evaluation Report - Corpus thematisation" \
+  --output data/out/report_evaluation_benchmark_all.md
 ```
 
 ## Interpretation Checklist
@@ -28,7 +37,7 @@ When reading report markdown:
 - verify top topics are aligned with expected domain themes
 - verify representative documents are relevant evidence
 - look for overlap warnings in comparison sections
-- cross-check with `evaluate` metrics when available
+- for evaluation reports, compare coherence/diversity/Jaccard per method before selecting a strategy
 
 ## Suggested Shareable Bundle
 

@@ -15,7 +15,9 @@ uv run theme-extractor benchmark \
   --backend-url http://localhost:9200 \
   --index theme_extractor \
   --focus both \
-  --query "facture OR copropriete OR impot" \
+  --query "match_all" \
+  --bertopic-min-topic-size 5 \
+  --search-size 200 \
   --output data/out/benchmark_all.json
 ```
 
@@ -79,3 +81,4 @@ uv run theme-extractor evaluate \
 ```
 
 Use `evaluate` as a quantitative proxy, then confirm with manual domain review.
+For detailed interpretation of metrics (including Jaccard), see `howto/evaluation.md`.
