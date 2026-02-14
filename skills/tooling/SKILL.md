@@ -28,6 +28,14 @@ Standardize setup, checks, and local developer workflows.
 6. Run `uv run pytest -m end2end`.
 7. Run one dead-code cleanup pass and remove obsolete/unused code before pushing.
 
+## PR Monitoring Rule
+When a PR has just been created or updated:
+1. Wait 60 seconds before the first GitHub check.
+2. Then poll every 60 seconds until BOTH are true:
+   - CI status is available and passing,
+   - Copilot review has arrived.
+3. Once both are available, analyze Copilot comments and apply changes according to relevance (`valid`, `partially valid`, `not needed` with rationale).
+
 ## Offline and Proxy Rules
 - Keep model and backend usage configurable for offline execution.
 - Respect proxy variables when network is required:
