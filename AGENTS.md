@@ -4,10 +4,10 @@
 Build a robust Python package to benchmark multiple theme/topic extraction strategies on the same corpus, with a coherent CLI, unified outputs, and strong ingestion/cleaning quality.
 
 ## Current Stage
-Stage 1 focuses on AI delivery tooling:
-- agent governance (`agent.md`)
-- execution roadmap (`plan.md`)
-- reusable project skills (`skills/*`)
+Current stage is post-foundation maintenance and continuous improvement:
+- AI delivery tooling is in place (`agent.md`, `plan.md`, `skills/*`)
+- core CLI, ingestion, extraction, benchmark, evaluation, and reporting workflows are implemented
+- current work focuses on quality hardening, documentation clarity, and release hygiene
 
 ## Working Rules
 - Use English as the default language for docstrings, README, and core project artifacts.

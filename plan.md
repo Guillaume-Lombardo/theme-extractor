@@ -103,12 +103,12 @@ Create a production-grade toolkit to compare topic extraction strategies on hete
 - [x] Make a Sphinx documentation including docstrings, README, and how-to guides.
 
 ## Branch and PR Policy
-- [ ] Execute each run/phase/feature in its own dedicated branch.
-- [ ] Close each run/phase/feature with a GitHub Pull Request.
+- [x] Execute each run/phase/feature in its own dedicated branch.
+- [x] Close each run/phase/feature with a GitHub Pull Request.
 
 ## MBAD Decisions (2026-02-10)
 - [x] Primary deliverable: raw JSON output first.
-- [x] Keep markdown report as a possible later phase.
+- [x] Markdown report delivered (implemented in Phase 6).
 - [x] Target strict offline mode, with optional preload/first-run model download mode.
 - [x] Accept optional Python dependency for `.msg` parsing.
 - [x] Keep a single CLI with subcommands.
