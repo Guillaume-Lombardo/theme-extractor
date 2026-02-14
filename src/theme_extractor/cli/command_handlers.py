@@ -8,7 +8,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from theme_extractor.cli_ingest_backend import (
+from theme_extractor.cli.ingest_backend_indexing import (
     build_ingest_index_documents,
     bulk_index_documents,
     effective_ingest_stopwords,

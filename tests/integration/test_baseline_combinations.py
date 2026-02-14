@@ -68,7 +68,7 @@ class _BackendStub:
 
 
 def test_benchmark_runs_all_baseline_methods_with_single_backend(monkeypatch, capsys) -> None:
-    monkeypatch.setattr("theme_extractor.cli.build_search_backend", lambda **_kwargs: _BackendStub())
+    monkeypatch.setattr("theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _BackendStub())
 
     exit_code = main(
         [

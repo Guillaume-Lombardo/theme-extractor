@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import os
 
-from theme_extractor.cli_commands import (
+from theme_extractor.cli.command_handlers import (
     _DEFAULT_BASELINE_FIELDS,
     _DEFAULT_METHODS,
     handle_benchmark,
@@ -15,7 +15,7 @@ from theme_extractor.cli_commands import (
     handle_ingest,
     handle_report,
 )
-from theme_extractor.cli_common import _DEFAULT_BACKEND_URL, _DEFAULT_INDEX, env_bool
+from theme_extractor.cli.common_runtime import _DEFAULT_BACKEND_URL, _DEFAULT_INDEX, env_bool
 from theme_extractor.domain import (
     BackendName,
     BertopicClustering,
