@@ -77,9 +77,7 @@ _BASELINE_METHODS = {
 _SEARCH_DRIVEN_METHODS = _BASELINE_METHODS | {ExtractMethod.KEYBERT, ExtractMethod.LLM}
 _UNSUPPORTED_EXTRACT_METHOD_ERROR = "Unsupported extract method: {method!r}."
 _MISSING_BASELINE_FIELDS_ERROR = "At least one baseline field must be provided."
-_MISSING_BENCHMARK_METHODS_ERROR = (
-    "At least one extraction method must be provided for benchmark execution."
-)
+_MISSING_BENCHMARK_METHODS_ERROR = "At least one extraction method must be provided for benchmark execution."
 
 
 def parse_baseline_fields(value: str) -> tuple[str, ...]:

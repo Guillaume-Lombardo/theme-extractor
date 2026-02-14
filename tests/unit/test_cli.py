@@ -235,7 +235,9 @@ def test_ingest_index_backend_triggers_bulk_indexing(tmp_path, capsys, monkeypat
         "theme_extractor.cli.command_handlers.build_ingest_index_documents",
         _fake_build_ingest_index_documents,
     )
-    monkeypatch.setattr("theme_extractor.cli.command_handlers.bulk_index_documents", _fake_bulk_index_documents)
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.bulk_index_documents", _fake_bulk_index_documents
+    )
 
     exit_code = main(
         [
@@ -414,7 +416,9 @@ def test_doctor_backend_check_reports_error(monkeypatch, capsys) -> None:
             _ = body
             raise _BackendUnavailableError
 
-    monkeypatch.setattr("theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _FailingBackend())
+    monkeypatch.setattr(
+        "theme_extractor.cli.command_handlers.build_search_backend", lambda **_kwargs: _FailingBackend()
+    )
 
     exit_code = main(["doctor", "--check-backend", "--output", "-"])
     assert exit_code == 0

@@ -98,11 +98,7 @@ def test_run_bertopic_builds_topics_and_doc_links() -> None:
     )
 
     assert output.topics
-    assert all(
-        keyword.term.lower() != "to"
-        for topic in output.topics
-        for keyword in topic.keywords
-    )
+    assert all(keyword.term.lower() != "to" for topic in output.topics for keyword in topic.keywords)
     assert output.document_topics
     assert "BERTopic strategy executed." in output.notes
 

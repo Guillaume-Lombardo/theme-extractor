@@ -97,6 +97,7 @@ exclude = [
   ignore = [
     "A002",   # Flake8-builtins – Argument name shadows a Python builtin (autorisé pour lisibilité/compatibilité interne)
     "BLE001", # Flake8-blind-except – Blind except (autorisé pour capturer toutes les exceptions lors de l'exécution de code tiers)
+    "COM812", # Flake8-commas – conflicts with formatter in multi-line call layouts
     "D100",   # Pydocstyle - missing docstring in public module
     "D203",   # Pydocstyle - one blank line required before class docstring
     "E501",   # Pycodestyle - line too long
