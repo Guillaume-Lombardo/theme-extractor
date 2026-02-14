@@ -2,6 +2,8 @@
 
 # Ingestion of howtos
 
+: "${BENCHMARK_QUERY:=match_all}"
+
 uv run theme-extractor ingest \
   --input "howto/" \
   --reset-index \
@@ -199,7 +201,9 @@ uv run theme-extractor benchmark \
   --backend-url http://localhost:9200 \
   --index theme_extractor \
   --focus both \
-  --query "facture OR copropriete OR impot" \
+  --query "${BENCHMARK_QUERY}" \
+  --bertopic-min-topic-size 5 \
+  --search-size 200 \
   --output data/out/benchmark_all.json
 
 uv run theme-extractor evaluate \
@@ -252,4 +256,3 @@ uv run theme-extractor report \
   --input data/out/benchmark_all.json \
   --title "Benchmark Report - Howtos from theme-extractor" \
   --output data/out/report_benchmark.md
-
