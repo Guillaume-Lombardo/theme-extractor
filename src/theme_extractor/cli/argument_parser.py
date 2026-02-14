@@ -32,7 +32,12 @@ from theme_extractor.domain import (
 
 
 def add_shared_runtime_flags(subparser: argparse.ArgumentParser) -> None:
-    """Add common runtime flags shared by subcommands."""
+    """Add common runtime flags shared by subcommands.
+
+    Args:
+        subparser (argparse.ArgumentParser): Subcommand parser to enrich.
+
+    """
     subparser.add_argument(
         "--offline-policy",
         default=OfflinePolicy.STRICT.value,
@@ -66,7 +71,12 @@ def add_shared_runtime_flags(subparser: argparse.ArgumentParser) -> None:
 
 
 def add_output_flag(subparser: argparse.ArgumentParser) -> None:
-    """Add output emission flag used by all subcommands."""
+    """Add output emission flag used by all subcommands.
+
+    Args:
+        subparser (argparse.ArgumentParser): Subcommand parser to enrich.
+
+    """
     subparser.add_argument(
         "--output",
         default="-",
@@ -75,7 +85,12 @@ def add_output_flag(subparser: argparse.ArgumentParser) -> None:
 
 
 def add_baseline_strategy_flags(subparser: argparse.ArgumentParser) -> None:
-    """Add extraction strategy flags shared by extract/benchmark commands."""
+    """Add extraction strategy flags shared by extract/benchmark commands.
+
+    Args:
+        subparser (argparse.ArgumentParser): Subcommand parser to enrich.
+
+    """
     subparser.add_argument(
         "--query",
         default="match_all",
@@ -240,7 +255,12 @@ def add_baseline_strategy_flags(subparser: argparse.ArgumentParser) -> None:
 
 
 def build_ingest_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register the ingest subcommand parser."""
+    """Register the ingest subcommand parser.
+
+    Args:
+        subparsers (argparse._SubParsersAction[argparse.ArgumentParser]): Root subparsers.
+
+    """
     ingest_parser = subparsers.add_parser(CommandName.INGEST.value, help="Plan ingestion configuration.")
     ingest_parser.add_argument("--input", required=True, help="Input folder or file path to ingest.")
     ingest_parser.add_argument(
@@ -369,7 +389,12 @@ def build_ingest_parser(subparsers: argparse._SubParsersAction[argparse.Argument
 
 
 def build_extract_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register the extract subcommand parser."""
+    """Register the extract subcommand parser.
+
+    Args:
+        subparsers (argparse._SubParsersAction[argparse.ArgumentParser]): Root subparsers.
+
+    """
     extract_parser = subparsers.add_parser(CommandName.EXTRACT.value, help="Run one extraction strategy.")
     extract_parser.add_argument(
         "--method",
@@ -390,7 +415,12 @@ def build_extract_parser(subparsers: argparse._SubParsersAction[argparse.Argumen
 
 
 def build_benchmark_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register the benchmark subcommand parser."""
+    """Register the benchmark subcommand parser.
+
+    Args:
+        subparsers (argparse._SubParsersAction[argparse.ArgumentParser]): Root subparsers.
+
+    """
     benchmark_parser = subparsers.add_parser(
         CommandName.BENCHMARK.value,
         help="Run multiple extraction strategies under one benchmark run.",
@@ -413,7 +443,12 @@ def build_benchmark_parser(subparsers: argparse._SubParsersAction[argparse.Argum
 
 
 def build_doctor_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register doctor subcommand parser."""
+    """Register doctor subcommand parser.
+
+    Args:
+        subparsers (argparse._SubParsersAction[argparse.ArgumentParser]): Root subparsers.
+
+    """
     doctor_parser = subparsers.add_parser(
         CommandName.DOCTOR.value,
         help="Inspect local runtime/dependency/backend readiness.",
@@ -440,7 +475,12 @@ def build_doctor_parser(subparsers: argparse._SubParsersAction[argparse.Argument
 
 
 def build_report_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register report subcommand parser."""
+    """Register report subcommand parser.
+
+    Args:
+        subparsers (argparse._SubParsersAction[argparse.ArgumentParser]): Root subparsers.
+
+    """
     report_parser = subparsers.add_parser(
         CommandName.REPORT.value,
         help="Render markdown report from extraction/benchmark output.",
@@ -460,7 +500,12 @@ def build_report_parser(subparsers: argparse._SubParsersAction[argparse.Argument
 
 
 def build_evaluate_parser(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """Register evaluate subcommand parser."""
+    """Register evaluate subcommand parser.
+
+    Args:
+        subparsers (argparse._SubParsersAction[argparse.ArgumentParser]): Root subparsers.
+
+    """
     evaluate_parser = subparsers.add_parser(
         CommandName.EVALUATE.value,
         help="Compute evaluation metrics from extraction/benchmark output files.",

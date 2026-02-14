@@ -155,6 +155,9 @@ def build_bertopic_config(args: argparse.Namespace) -> BertopicExtractionConfig:
 def build_keybert_config(args: argparse.Namespace) -> KeyBertExtractionConfig:
     """Build KeyBERT strategy runtime config from CLI args.
 
+    Args:
+        args (argparse.Namespace): Parsed command-line arguments.
+
     Returns:
         KeyBertExtractionConfig: KeyBERT extraction configuration.
 
@@ -172,6 +175,9 @@ def build_keybert_config(args: argparse.Namespace) -> KeyBertExtractionConfig:
 
 def build_llm_config(args: argparse.Namespace) -> LlmExtractionConfig:
     """Build LLM strategy runtime config from CLI args.
+
+    Args:
+        args (argparse.Namespace): Parsed command-line arguments.
 
     Returns:
         LlmExtractionConfig: LLM extraction configuration.
@@ -194,6 +200,10 @@ def build_baseline_backend(
     backend: BackendName,
 ) -> SearchBackend:
     """Build thin backend adapter used by search-driven methods.
+
+    Args:
+        args (argparse.Namespace): Parsed command-line arguments.
+        backend (BackendName): Backend type.
 
     Returns:
         SearchBackend: Search backend adapter.
@@ -236,6 +246,9 @@ def module_available(module_name: str) -> bool:
 
 def handle_doctor(args: argparse.Namespace) -> dict[str, Any]:
     """Run environment, dependency, and backend health checks.
+
+    Args:
+        args (argparse.Namespace): Parsed command-line arguments.
 
     Returns:
         dict[str, Any]: Doctor output payload.
@@ -330,6 +343,9 @@ def handle_doctor(args: argparse.Namespace) -> dict[str, Any]:
 def handle_report(args: argparse.Namespace) -> str:
     """Build markdown report from one extraction/benchmark JSON payload.
 
+    Args:
+        args (argparse.Namespace): Parsed command-line arguments.
+
     Returns:
         str: Markdown report content.
 
@@ -341,6 +357,9 @@ def handle_report(args: argparse.Namespace) -> str:
 def handle_evaluate(args: argparse.Namespace) -> dict[str, Any]:
     """Build quantitative proxy metrics from one or many JSON payloads.
 
+    Args:
+        args (argparse.Namespace): Parsed command-line arguments.
+
     Returns:
         dict[str, Any]: Evaluation metrics payload.
 
@@ -351,6 +370,9 @@ def handle_evaluate(args: argparse.Namespace) -> dict[str, Any]:
 
 def handle_ingest(args: argparse.Namespace) -> dict[str, Any]:
     """Build a normalized JSON payload for ingestion runs.
+
+    Args:
+        args (argparse.Namespace): Parsed command-line arguments.
 
     Returns:
         dict[str, Any]: Ingestion payload.
@@ -430,6 +452,9 @@ def handle_ingest(args: argparse.Namespace) -> dict[str, Any]:
 
 def handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
     """Build a normalized JSON payload for a single extraction strategy.
+
+    Args:
+        args (argparse.Namespace): Parsed command-line arguments.
 
     Raises:
         ValueError: If method is not wired in extract execution flow.
@@ -527,6 +552,9 @@ def handle_extract(args: argparse.Namespace) -> UnifiedExtractionOutput:
 
 def handle_benchmark(args: argparse.Namespace) -> BenchmarkOutput:
     """Run multiple extraction strategies and build benchmark payload.
+
+    Args:
+        args (argparse.Namespace): Parsed command-line arguments.
 
     Raises:
         ValueError: If benchmark method list is empty or unsupported.

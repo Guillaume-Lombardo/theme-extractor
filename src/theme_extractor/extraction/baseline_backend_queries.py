@@ -51,6 +51,9 @@ def normalized_query(config: BaselineExtractionConfig) -> dict[str, Any]:
 def search_body(config: BaselineExtractionConfig) -> dict[str, Any]:
     """Build search body used to fetch TF-IDF documents.
 
+    Args:
+        config (BaselineExtractionConfig): Baseline extraction configuration.
+
     Returns:
         dict[str, Any]: Backend search body.
 
@@ -64,6 +67,9 @@ def search_body(config: BaselineExtractionConfig) -> dict[str, Any]:
 
 def terms_aggregation_body(config: BaselineExtractionConfig) -> dict[str, Any]:
     """Build backend body for terms aggregation.
+
+    Args:
+        config (BaselineExtractionConfig): Baseline extraction configuration.
 
     Returns:
         dict[str, Any]: Backend aggregation payload.
@@ -87,6 +93,9 @@ def terms_aggregation_body(config: BaselineExtractionConfig) -> dict[str, Any]:
 def significant_terms_body(config: BaselineExtractionConfig) -> dict[str, Any]:
     """Build backend body for significant_terms aggregation.
 
+    Args:
+        config (BaselineExtractionConfig): Baseline extraction configuration.
+
     Returns:
         dict[str, Any]: Backend aggregation payload.
 
@@ -107,6 +116,9 @@ def significant_terms_body(config: BaselineExtractionConfig) -> dict[str, Any]:
 
 def significant_text_body(config: BaselineExtractionConfig) -> dict[str, Any]:
     """Build backend body for significant_text aggregation.
+
+    Args:
+        config (BaselineExtractionConfig): Baseline extraction configuration.
 
     Returns:
         dict[str, Any]: Backend aggregation payload.
