@@ -14,11 +14,16 @@ from theme_extractor.domain import (
     TopicResult,
     UnifiedExtractionOutput,
 )
+from theme_extractor.extraction.baseline_backend_queries import (
+    get_tfidf_vectorizer,
+    search_body,
+    significant_terms_body,
+    significant_text_body,
+    terms_aggregation_body,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-    from sklearn.feature_extraction.text import TfidfVectorizer
 
     from theme_extractor.search.protocols import SearchBackend
 
@@ -73,132 +78,6 @@ class BaselineRunRequest(BaseModel):
     config: BaselineExtractionConfig
 
 
-def _get_tfidf_vectorizer() -> type[TfidfVectorizer]:
-    """Return TfidfVectorizer class via lazy import.
-
-    Returns:
-        type[TfidfVectorizer]: TfidfVectorizer class.
-
-    """
-    from sklearn.feature_extraction.text import TfidfVectorizer  # noqa: PLC0415
-
-    return TfidfVectorizer
-
-
-def _normalized_query(config: BaselineExtractionConfig) -> dict[str, Any]:
-    """Build normalized query expression.
-
-    Args:
-        config: Baseline extraction configuration.
-
-    Returns:
-        dict[str, Any]: Query expression for backend requests.
-
-    """
-    query = config.query.strip()
-    if query in {"", "*", "match_all"}:
-        return {"match_all": {}}
-
-    return {
-        "simple_query_string": {
-            "query": query,
-            "fields": list(config.fields),
-            "default_operator": "and",
-        },
-    }
-
-
-def _search_body(config: BaselineExtractionConfig) -> dict[str, Any]:
-    """Build search body used to fetch TF-IDF documents.
-
-    Args:
-        config: Baseline extraction configuration.
-
-    Returns:
-        dict[str, Any]: Backend search body.
-
-    """
-    return {
-        "size": max(1, config.search_size),
-        "query": _normalized_query(config),
-        "_source": {"includes": [config.source_field]},
-    }
-
-
-def _terms_aggregation_body(config: BaselineExtractionConfig) -> dict[str, Any]:
-    """Build backend body for terms aggregation.
-
-    Args:
-        config: Baseline extraction configuration.
-
-    Returns:
-        dict[str, Any]: Aggregation query body.
-
-    """
-    return {
-        "size": 0,
-        "query": _normalized_query(config),
-        "aggs": {
-            _AGG_TERMS_KEY: {
-                "terms": {
-                    "field": config.aggregation_field,
-                    "size": max(1, config.top_n),
-                    "min_doc_count": max(1, config.terms_min_doc_count),
-                },
-            },
-        },
-    }
-
-
-def _significant_terms_body(config: BaselineExtractionConfig) -> dict[str, Any]:
-    """Build backend body for significant_terms aggregation.
-
-    Args:
-        config: Baseline extraction configuration.
-
-    Returns:
-        dict[str, Any]: Aggregation query body.
-
-    """
-    return {
-        "size": 0,
-        "query": _normalized_query(config),
-        "aggs": {
-            _AGG_THEMES_KEY: {
-                "significant_terms": {
-                    "field": config.aggregation_field,
-                    "size": max(1, config.top_n),
-                },
-            },
-        },
-    }
-
-
-def _significant_text_body(config: BaselineExtractionConfig) -> dict[str, Any]:
-    """Build backend body for significant_text aggregation.
-
-    Args:
-        config: Baseline extraction configuration.
-
-    Returns:
-        dict[str, Any]: Aggregation query body.
-
-    """
-    return {
-        "size": 0,
-        "query": _normalized_query(config),
-        "aggs": {
-            _AGG_THEMES_KEY: {
-                "significant_text": {
-                    "field": config.aggregation_field,
-                    "size": max(1, config.top_n),
-                    "filter_duplicate_text": config.sigtext_filter_duplicate,
-                },
-            },
-        },
-    }
-
-
 def _to_document_topics(
     *,
     focus: OutputFocus,
@@ -244,7 +123,7 @@ def _extract_tfidf_topic(
         tuple[list[TopicResult], list[DocumentTopicLink] | None]: Topics and document-topic links.
 
     """
-    response = backend.search_documents(index=index, body=_search_body(config))
+    response = backend.search_documents(index=index, body=search_body(config))
 
     hits = (response.get("hits") or {}).get("hits") or []
     documents: list[str] = []
@@ -262,7 +141,7 @@ def _extract_tfidf_topic(
         empty_doc_topics = [] if focus in {OutputFocus.DOCUMENTS, OutputFocus.BOTH} else None
         return [], empty_doc_topics
 
-    tfidf_vectorizer = _get_tfidf_vectorizer()
+    tfidf_vectorizer = get_tfidf_vectorizer()
     vectorizer = tfidf_vectorizer(ngram_range=(1, 3), min_df=1, max_features=50_000)
     matrix = vectorizer.fit_transform(documents)
     scores = matrix.sum(axis=0).A1
@@ -367,7 +246,7 @@ def run_baseline_method(
     if request.method == ExtractMethod.TERMS:
         response = backend.terms_aggregation(
             index=request.index,
-            body=_terms_aggregation_body(request.config),
+            body=terms_aggregation_body(request.config),
         )
         output.topics = _buckets_to_topics(_parse_buckets(response))
         if request.focus in {OutputFocus.DOCUMENTS, OutputFocus.BOTH}:
@@ -378,7 +257,7 @@ def run_baseline_method(
     if request.method == ExtractMethod.SIGNIFICANT_TERMS:
         response = backend.significant_terms_aggregation(
             index=request.index,
-            body=_significant_terms_body(request.config),
+            body=significant_terms_body(request.config),
         )
         output.topics = _buckets_to_topics(_parse_buckets(response))
         if request.focus in {OutputFocus.DOCUMENTS, OutputFocus.BOTH}:
@@ -389,7 +268,7 @@ def run_baseline_method(
     if request.method == ExtractMethod.SIGNIFICANT_TEXT:
         response = backend.significant_text_aggregation(
             index=request.index,
-            body=_significant_text_body(request.config),
+            body=significant_text_body(request.config),
         )
         output.topics = _buckets_to_topics(_parse_buckets(response))
         if request.focus in {OutputFocus.DOCUMENTS, OutputFocus.BOTH}:
