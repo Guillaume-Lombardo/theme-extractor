@@ -52,7 +52,7 @@ Symptom:
 Fix:
 
 ```bash
-uv pip install pymupdf python-docx openpyxl python-pptx extract-msg
+uv sync --group ingestion
 ```
 
 ## `.msg` ingestion misses expected context
@@ -81,6 +81,63 @@ Fix:
   - `--pdf-ocr-min-chars 32`
 - If your OCR runtime needs an explicit tessdata path:
   - `--pdf-ocr-tessdata /path/to/tessdata`
+- If you see warnings like `Failed loading language 'fra'`:
+  - install the matching language pack in your tesseract runtime, or
+  - run with available language(s), for example:
+    - `--pdf-ocr-languages eng`
+
+## Tesseract warning: missing `fra.traineddata` / `TESSDATA_PREFIX`
+
+Symptom (example):
+- `Error opening data file .../tessdata/fra.traineddata`
+- `Please make sure the TESSDATA_PREFIX environment variable is set...`
+- `Failed loading language 'fra'`
+
+Meaning:
+- OCR is enabled and `fra` is requested, but French language data is not found by tesseract.
+
+Fix (macOS with Homebrew):
+
+```bash
+brew install tesseract tesseract-lang
+export TESSDATA_PREFIX="$(brew --prefix)/share/tessdata"
+```
+
+Fix (Debian/Ubuntu):
+
+```bash
+sudo apt-get update
+sudo apt-get install -y tesseract-ocr tesseract-ocr-fra tesseract-ocr-eng
+export TESSDATA_PREFIX=/usr/share/tesseract-ocr/4.00/tessdata
+```
+
+Checks:
+
+```bash
+tesseract --list-langs
+```
+
+Runtime alternatives:
+- point directly to tessdata: `--pdf-ocr-tessdata /path/to/tessdata`
+- use only installed languages: `--pdf-ocr-languages eng`
+- disable OCR fallback: `--no-pdf-ocr-fallback`
+
+## Legacy `.doc` files fail with OpenXML relationship errors
+
+Symptom (example):
+- `no relationship of type 'http://schemas.openxmlformats.org/.../officeDocument'`
+
+Meaning:
+- the file is legacy binary `.doc` (not OOXML `.docx`), and `python-docx` cannot parse it.
+
+Fix:
+- convert `.doc` to `.docx` before ingestion.
+
+Example conversion with LibreOffice:
+
+```bash
+soffice --headless --convert-to docx --outdir /tmp /path/to/file.doc
+```
 
 ## Proxy and offline behavior
 

@@ -1,12 +1,24 @@
 [project]
-name = "theme-extractor"
-version = "0.1.1"
-description = "Parse a corpus, manage it and extract themes from a corpus."
-readme = "README.md"
-requires-python = ">=3.13"
-license = { file = "LICENSE.md" }
-keywords = ["theme extraction", "corpus management", "text analysis", "python", "elasticsearch", "cli", "opensearch", "llm", "keyBERT", "sentence-transformers", "BERTopics"]
-classifiers = [
+  name = "theme-extractor"
+  version = "0.1.1"
+  description = "Parse a corpus, manage it and extract themes from a corpus."
+  readme = "README.md"
+  requires-python = ">=3.13"
+  license = { file = "LICENSE.md" }
+  keywords = [
+    "BERTopics",
+    "cli",
+    "corpus management",
+    "elasticsearch",
+    "keyBERT",
+    "llm",
+    "opensearch",
+    "python",
+    "sentence-transformers",
+    "text analysis",
+    "theme extraction",
+  ]
+  classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: Developers",
@@ -15,103 +27,116 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Build Tools",
     "Topic :: Text Processing :: Markup",
-]
-dependencies = [
-    "pydantic>=2.12.0",
-    "pydantic-settings>=2.12.0",
+  ]
+  dependencies = [
     "httpx>=0.28.1",
-    "structlog>=25.5.0",
+    "numpy>=2.0.0",
+    "pydantic-settings>=2.12.0",
+    "pydantic>=2.12.0",
     "pyyaml>=6.0.3",
     "scikit-learn>=1.3.0",
-    "numpy>=2.0.0",
-]
+    "structlog>=25.5.0",
+  ]
 
 [dependency-groups]
-dev = [
-    "ruff>=0.15.0",
-    "ty>=0.0.15",
-    "pytest>=9.0.2",
+  dev = [
+    "detect-secrets>=1.5.0",
+    "myst-parser>=5.0.0",
+    "pre-commit>=4.5.1",
     "pytest-cov>=7.0.0",
     "pytest-mock>=3.15.1",
     "pytest-sugar>=1.1.1",
-    "pre-commit>=4.5.1",
-    "detect-secrets>=1.5.0",
+    "pytest>=9.0.2",
+    "ruff>=0.15.0",
     "sphinx>=9.1.0",
-    "myst-parser>=5.0.0",
-]
-bert = [
-  "keyBERT>=0.7.0",
-  "sentence-transformers>=5.2.2",
-  "BERTopic>=0.15.0",
-  "umap-learn>=0.5.3",
-  "numba>=0.63.1",
-  "llvmlite>=0.46.0",
-]
-elasticsearch = [
-  "elasticsearch>=9.3.0",
-]
-opensearch = [
-  "opensearch-py>=3.1.0",
-]
-llm = [
-  "openai>=1.68.2",
-]
+    "ty>=0.0.15",
+  ]
+  bert = [
+    "BERTopic>=0.15.0",
+    "keyBERT>=0.7.0",
+    "llvmlite>=0.46.0",
+    "numba>=0.63.1",
+    "sentence-transformers>=5.2.2",
+    "umap-learn>=0.5.3",
+  ]
+  elasticsearch = ["elasticsearch>=9.3.0"]
+  opensearch = ["opensearch-py>=3.1.0"]
+  llm = ["openai>=1.68.2"]
+  ingestion = [
+    "extract-msg>=0.55.0",
+    "openpyxl>=3.1.2",
+    "pdfplumber>=0.7.3",
+    "pymupdf>=1.27.1",
+    "python-docx>=1.2.0",
+    "python-pptx>=1.0.2",
+  ]
 
 [build-system]
-requires = ["hatchling", "build"]
-build-backend = "hatchling.build"
+  requires = ["build", "hatchling"]
+  build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/theme_extractor"]
-include = ["src/theme_extractor/**"]
-exclude = ["src/theme_extractor/**/*.pyc", "src/theme_extractor/__pycache__/**"]
+  packages = ["src/theme_extractor"]
+  include = ["src/theme_extractor/**"]
+  exclude = [
+    "src/theme_extractor/**/*.pyc",
+    "src/theme_extractor/__pycache__/**",
+  ]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/theme_extractor/**", "README.md", "LICENSE.md", "pyproject.toml"]
-exclude = ["src/theme_extractor/**/*.pyc", "src/theme_extractor/__pycache__/**"]
+  include = [
+    "LICENSE.md",
+    "README.md",
+    "pyproject.toml",
+    "src/theme_extractor/**",
+  ]
+  exclude = [
+    "src/theme_extractor/**/*.pyc",
+    "src/theme_extractor/__pycache__/**",
+  ]
 
 
-[project.scripts]
-theme-extractor = "theme_extractor.cli:main"
+  [project.scripts]
+    theme-extractor = "theme_extractor.cli:main"
 
-[project.urls]
-Homepage = "https://github.com/Guillaume-Lombardo/theme-extractor"
-Repository = "https://github.com/Guillaume-Lombardo/theme-extractor"
-Issues = "https://github.com/Guillaume-Lombardo/theme-extractor/issues"
+  [project.urls]
+    Homepage = "https://github.com/Guillaume-Lombardo/theme-extractor"
+    Repository = "https://github.com/Guillaume-Lombardo/theme-extractor"
+    Issues = "https://github.com/Guillaume-Lombardo/theme-extractor/issues"
 
 
 [tool.pytest.ini_options]
-minversion = "9.0"
-testpaths = ["tests"]
-addopts = "-ra -q -m unit --strict-markers --cov=src --cov-report=term-missing:skip-covered --cov-report=html"
-pythonpath = ["src"]
-markers = [
-    "unit: mark a test as a unit test.",
-    "integration: mark a test as an integration test.",
+  minversion = "9.0"
+  testpaths = ["tests"]
+  addopts = "-ra -q -m unit --strict-markers --cov=src --cov-report=term-missing:skip-covered --cov-report=html"
+  pythonpath = ["src"]
+  markers = [
     "end2end: mark a test as an end-to-end test.",
-]
+    "integration: mark a test as an integration test.",
+    "unit: mark a test as a unit test.",
+  ]
 
 [tool.coverage.run]
-branch = true
-source = ["src/theme_extractor"]
-omit = ["*/tests/*"]
+  branch = true
+  source = ["src/theme_extractor"]
+  omit = ["*/tests/*"]
 
 [tool.coverage.report]
-exclude_lines = [
+  exclude_lines = [
     "def __repr__",
     "def __str__",
+    "if __name__ .__main__.:",
     "if self.debug",
     "if settings.DEBUG",
-    "if __name__ .__main__.:",
     "pragma: no cover",
     "raise AssertionError",
     "raise NotImplementedError",
-]
-show_missing = true
-skip_covered = true
-precision = 2
-fail_under = 80
+  ]
+  show_missing = true
+  skip_covered = true
+  precision = 2
+  fail_under = 80
 
 [tool.coverage.html]
-directory = "htmlcov"
-title = "Theme Extractor Coverage Report"
+  directory = "htmlcov"
+  title = "Theme Extractor Coverage Report"

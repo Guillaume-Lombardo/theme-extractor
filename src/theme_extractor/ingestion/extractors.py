@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import os
+import subprocess  # noqa: S404
 from dataclasses import dataclass
+from functools import lru_cache
 from importlib import import_module
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -28,6 +31,10 @@ _SUPPORTED_SUFFIXES = {
 }
 _PDF_DEPENDENCY_MSG = "Install 'pymupdf' to ingest PDF files."
 _DOCX_DEPENDENCY_MSG = "Install 'python-docx' to ingest DOCX files."
+_DOC_LEGACY_UNSUPPORTED_MSG = (
+    "Legacy .doc format is not supported by python-docx. "
+    "Convert file to .docx first (for example with LibreOffice), then re-run ingestion."
+)
 _XLSX_DEPENDENCY_MSG = "Install 'openpyxl' to ingest XLSX files."
 _PPTX_DEPENDENCY_MSG = "Install 'python-pptx' to ingest PPTX files."
 _MSG_DEPENDENCY_MSG = "Install 'extract-msg' to ingest .msg files."
@@ -60,6 +67,85 @@ class _PdfPageProtocol(Protocol):
     def get_text(self, *args: object, **kwargs: object) -> str: ...
 
     def get_textpage_ocr(self, **kwargs: object) -> object: ...
+
+
+def _normalize_ocr_languages(raw: str) -> tuple[str, ...]:
+    """Normalize OCR language string into ordered unique tokens.
+
+    Args:
+        raw (str): Raw OCR language value (for example `fra+eng`).
+
+    Returns:
+        tuple[str, ...]: Normalized language tokens.
+
+    """
+    tokens = [token.strip() for token in raw.split("+") if token.strip()]
+    normalized = list(dict.fromkeys(tokens))
+    return tuple(normalized)
+
+
+@lru_cache(maxsize=8)
+def _available_tesseract_languages(tessdata: str | None) -> set[str] | None:
+    """Read available tesseract languages when binary is available.
+
+    Args:
+        tessdata (str | None): Optional tessdata directory.
+
+    Returns:
+        set[str] | None: Available language codes, or `None` when unavailable.
+
+    """
+    env = os.environ.copy()
+    if tessdata:
+        env["TESSDATA_PREFIX"] = tessdata
+
+    try:
+        proc = subprocess.run(
+            ["tesseract", "--list-langs"],  # noqa: S607
+            check=False,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+    except Exception:
+        return None
+
+    if proc.returncode != 0:
+        return None
+
+    lines = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+    if not lines:
+        return None
+
+    langs = {line for line in lines if "available languages" not in line.lower()}
+    return langs or None
+
+
+def _resolve_ocr_languages(*, languages: str, tessdata: str | None) -> str:
+    """Resolve OCR languages to available ones when tesseract introspection is possible.
+
+    Args:
+        languages (str): Requested OCR languages.
+        tessdata (str | None): Optional tessdata directory.
+
+    Returns:
+        str: OCR languages string safe for tesseract runtime.
+
+    """
+    requested = _normalize_ocr_languages(languages)
+    if not requested:
+        return "eng"
+
+    available = _available_tesseract_languages(tessdata)
+    if not available:
+        return "+".join(requested)
+
+    supported_requested = [lang for lang in requested if lang in available]
+    if supported_requested:
+        return "+".join(supported_requested)
+    if "eng" in available:
+        return "eng"
+    return "+".join(requested)
 
 
 def supported_suffixes() -> set[str]:
@@ -103,7 +189,10 @@ def extract_text(
             pdf_ocr=PdfOcrOptions() if pdf_ocr is None else pdf_ocr,
         )
 
-    if suffix in {".doc", ".docx"}:
+    if suffix == ".doc":
+        raise ValueError(_DOC_LEGACY_UNSUPPORTED_MSG)
+
+    if suffix == ".docx":
         return _extract_docx(path)
 
     if suffix in {".xls", ".xlsx"}:
@@ -195,7 +284,10 @@ def _extract_pdf_page_with_ocr(
         return ""
 
     kwargs: dict[str, Any] = {
-        "language": pdf_ocr.languages,
+        "language": _resolve_ocr_languages(
+            languages=pdf_ocr.languages,
+            tessdata=pdf_ocr.tessdata,
+        ),
         "dpi": pdf_ocr.dpi,
     }
     if pdf_ocr.tessdata:

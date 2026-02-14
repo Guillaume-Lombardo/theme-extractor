@@ -1,6 +1,7 @@
 # How To Generate and Use Reports
 
 ## Goal
+
 Convert extraction/benchmark JSON output into markdown for easier sharing.
 
 ## From `extract` output

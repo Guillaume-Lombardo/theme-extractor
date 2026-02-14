@@ -169,6 +169,44 @@ def test_ingest_to_file_writes_json(tmp_path) -> None:
     assert payload["streaming_mode"] is True
     assert payload["runtime"]["offline_policy"] == "strict"
     assert payload["documents"][0]["path"] == str(sample.resolve())
+    assert payload["runtime"]["reset_index"]["requested"] is False
+    assert payload["runtime"]["reset_index"]["applied"] is False
+
+
+def test_ingest_reset_index_triggers_backend_reset(tmp_path, capsys, monkeypatch) -> None:
+    sample = tmp_path / "sample.txt"
+    sample.write_text("Bonjour le monde", encoding="utf-8")
+    captured: dict[str, str] = {}
+
+    def _fake_reset_backend_index(*, backend_url: str, index: str) -> None:
+        captured["backend_url"] = backend_url
+        captured["index"] = index
+
+    monkeypatch.setattr("theme_extractor.cli._reset_backend_index", _fake_reset_backend_index)
+
+    exit_code = main(
+        [
+            "ingest",
+            "--input",
+            str(sample),
+            "--backend-url",
+            "http://localhost:9201",
+            "--index",
+            "theme_extractor_test",
+            "--reset-index",
+            "--output",
+            "-",
+        ],
+    )
+
+    assert exit_code == 0
+    assert captured == {
+        "backend_url": "http://localhost:9201",
+        "index": "theme_extractor_test",
+    }
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["runtime"]["reset_index"]["requested"] is True
+    assert payload["runtime"]["reset_index"]["applied"] is True
 
 
 def test_ingest_accepts_none_cleaning_option(tmp_path, capsys) -> None:

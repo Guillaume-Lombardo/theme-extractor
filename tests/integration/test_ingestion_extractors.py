@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from subprocess import CompletedProcess  # noqa: S404
 from types import SimpleNamespace
 from typing import ClassVar
 
@@ -131,6 +132,11 @@ def _import_module_pdf_scanned(name: str) -> object:
     raise ImportError(name)
 
 
+def _fake_run_tesseract_languages(*_args: object, **_kwargs: object) -> CompletedProcess[str]:
+    stdout = "List of available languages in /opt/tessdata (2):\neng\nosd\n"
+    return CompletedProcess(args=["tesseract", "--list-langs"], returncode=0, stdout=stdout, stderr="")
+
+
 def test_supported_suffixes_contains_expected_formats() -> None:
     suffixes = supported_suffixes()
     assert ".txt" in suffixes
@@ -154,6 +160,14 @@ def test_extract_text_raises_for_unknown_extension(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="Unsupported file type"):
         extract_text(unknown)
+
+
+def test_extract_text_rejects_legacy_doc_with_clear_message(tmp_path) -> None:
+    legacy_doc = tmp_path / "legacy.doc"
+    legacy_doc.write_text("placeholder", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"Legacy \.doc format is not supported"):
+        extract_text(legacy_doc)
 
 
 def test_extract_text_optional_parsers_missing_dependency(tmp_path, monkeypatch) -> None:
@@ -202,6 +216,51 @@ def test_extract_text_pdf_ocr_fallback_enabled(tmp_path, monkeypatch) -> None:
     )
 
     assert out == "ocr extracted text"
+
+
+def test_extract_text_pdf_ocr_uses_available_languages(tmp_path, monkeypatch) -> None:
+    captured: dict[str, str] = {}
+
+    class _Page:
+        @staticmethod
+        def get_text(*args, **kwargs) -> str:  # noqa: ANN002, ANN003
+            if "textpage" in kwargs or (args and args[0] == "text"):
+                return "ocr extracted text"
+            return ""
+
+        @staticmethod
+        def get_textpage_ocr(*, language: str, dpi: int, tessdata: str | None = None) -> object:
+            captured["language"] = language
+            _ = dpi
+            _ = tessdata
+            return object()
+
+    class _Doc:
+        def __init__(self, _path: str):
+            self._pages = [_Page()]
+
+        def __iter__(self) -> object:
+            return iter(self._pages)
+
+    monkeypatch.setattr(extractors, "import_module", lambda _name: SimpleNamespace(Document=_Doc))
+    monkeypatch.setattr(extractors.subprocess, "run", _fake_run_tesseract_languages)
+    extractors._available_tesseract_languages.cache_clear()
+
+    pdf = tmp_path / "scan.pdf"
+    pdf.write_text("placeholder", encoding="utf-8")
+
+    out = extract_text(
+        pdf,
+        pdf_ocr=PdfOcrOptions(
+            fallback_enabled=True,
+            languages="fra+eng",
+            dpi=200,
+            min_chars=1,
+        ),
+    )
+
+    assert out == "ocr extracted text"
+    assert captured["language"] == "eng"
 
 
 def test_extract_text_msg_with_metadata_and_attachment_names(tmp_path, monkeypatch) -> None:

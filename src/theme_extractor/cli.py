@@ -11,6 +11,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import httpx
 from pydantic import BaseModel
 
 from theme_extractor.domain import (
@@ -77,6 +78,60 @@ _BASELINE_METHODS = {
 }
 _SEARCH_DRIVEN_METHODS = _BASELINE_METHODS | {ExtractMethod.KEYBERT, ExtractMethod.LLM}
 _UNSUPPORTED_EXTRACT_METHOD_ERROR = "Unsupported extract method: {method!r}."
+_BACKEND_RESET_ERROR = "Failed to reset index '{index}' on backend '{backend_url}': {error}"
+
+
+def _ingest_index_mapping_body() -> dict[str, Any]:
+    """Build index mapping used by `ingest --reset-index`.
+
+    Returns:
+        dict[str, Any]: Mapping payload.
+
+    """
+    return {
+        "mappings": {
+            "properties": {
+                "path": {"type": "keyword"},
+                "filename": {"type": "keyword"},
+                "extension": {"type": "keyword"},
+                "content": {"type": "text"},
+                "content_raw": {"type": "text"},
+                "content_clean": {"type": "text"},
+                "tokens": {"type": "keyword"},
+                "tokens_all": {"type": "keyword"},
+                "removed_stopword_count": {"type": "integer"},
+            },
+        },
+    }
+
+
+def _reset_backend_index(*, backend_url: str, index: str) -> None:
+    """Reset backend index by deleting and recreating it.
+
+    Args:
+        backend_url (str): Backend base URL.
+        index (str): Target index name.
+
+    Raises:
+        RuntimeError: If backend reset operation fails.
+
+    """
+    index_url = f"{backend_url.rstrip('/')}/{index}"
+    try:
+        with httpx.Client(timeout=60.0) as client:
+            delete_response = client.delete(index_url)
+            if delete_response.status_code not in {200, 202, 404}:
+                delete_response.raise_for_status()
+            create_response = client.put(index_url, json=_ingest_index_mapping_body())
+            create_response.raise_for_status()
+    except Exception as exc:  # pragma: no cover - network/backend dependent
+        raise RuntimeError(
+            _BACKEND_RESET_ERROR.format(
+                index=index,
+                backend_url=backend_url,
+                error=f"{exc.__class__.__name__}: {exc}",
+            ),
+        ) from exc
 
 
 def _env_bool(name: str, *, default_value: bool) -> bool:
@@ -646,6 +701,12 @@ def _build_ingest_parser(subparsers: argparse._SubParsersAction[argparse.Argumen
         choices=[policy.value for policy in MsgAttachmentPolicy],
         help="Attachment extraction policy for `.msg` files.",
     )
+    ingest_parser.add_argument(
+        "--reset-index",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+        help="Reset backend index (delete/recreate) before ingestion.",
+    )
     _add_shared_runtime_flags(ingest_parser)
     _add_output_flag(ingest_parser)
     ingest_parser.set_defaults(handler=_handle_ingest)
@@ -965,6 +1026,10 @@ def _handle_ingest(args: argparse.Namespace) -> dict[str, Any]:
         word.strip().lower() for word in str(args.manual_stopwords).split(",") if word.strip()
     }
     manual_stopwords_files = [Path(path).expanduser().resolve() for path in args.manual_stopwords_file]
+    reset_index_requested = bool(args.reset_index)
+    if reset_index_requested:
+        _reset_backend_index(backend_url=str(args.backend_url), index=str(args.index))
+
     config = IngestionConfig(
         input_path=Path(args.input).expanduser().resolve(),
         recursive=bool(args.recursive),
@@ -994,6 +1059,10 @@ def _handle_ingest(args: argparse.Namespace) -> dict[str, Any]:
         "backend": BackendName(args.backend).value,
         "backend_url": args.backend_url,
         "index": args.index,
+        "reset_index": {
+            "requested": reset_index_requested,
+            "applied": reset_index_requested,
+        },
     }
     return payload
 
