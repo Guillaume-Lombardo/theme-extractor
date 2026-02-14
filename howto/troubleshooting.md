@@ -167,18 +167,15 @@ Tips:
 ## Evaluation report looks empty
 
 Likely cause:
-
 - evaluation input only contains benchmark payload(s), so `extract_count` is `0`.
 
 Expected behavior:
-
 - `Extract Metrics` may contain placeholder row.
 - benchmark results should still be visible in:
   - `Benchmark Metrics`
   - `Benchmark Method Details` (per-method table).
 
 Fix:
-
 - confirm `evaluation_*.json` contains `benchmarks[*].metrics.per_method`.
 - regenerate markdown report:
   - `uv run theme-extractor report --input data/out/evaluation_benchmark_all.json --output data/out/report_evaluation_benchmark_all.md`
